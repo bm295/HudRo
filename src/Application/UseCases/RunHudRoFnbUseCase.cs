@@ -22,6 +22,12 @@ public sealed class RunHudRoFnbUseCase(
   public Task SendToKitchenAsync(Guid orderId, CancellationToken cancellationToken = default)
     => orderService.SendToKitchenAsync(orderId, cancellationToken);
 
+  public Task MarkPreparingAsync(Guid orderId, CancellationToken cancellationToken = default)
+    => orderService.MarkPreparingAsync(orderId, cancellationToken);
+
+  public Task MarkServedAsync(Guid orderId, CancellationToken cancellationToken = default)
+    => orderService.MarkServedAsync(orderId, cancellationToken);
+
   public Task<CloseOrderResult> CheckoutOrderAsync(CheckoutOrderCommand command, CancellationToken cancellationToken = default)
     => checkoutOrderWorkflow.ExecuteAsync(command, cancellationToken);
 

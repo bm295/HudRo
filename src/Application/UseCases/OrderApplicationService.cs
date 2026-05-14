@@ -60,6 +60,20 @@ public sealed class OrderApplicationService(IFnbReadPort readPort, IOrderPort or
     await orderPort.SaveAsync(order, cancellationToken);
   }
 
+  public async Task MarkPreparingAsync(Guid orderId, CancellationToken cancellationToken = default)
+  {
+    var order = await LoadOrderAsync(orderId, cancellationToken);
+    order.MarkPreparing();
+    await orderPort.SaveAsync(order, cancellationToken);
+  }
+
+  public async Task MarkServedAsync(Guid orderId, CancellationToken cancellationToken = default)
+  {
+    var order = await LoadOrderAsync(orderId, cancellationToken);
+    order.MarkServed();
+    await orderPort.SaveAsync(order, cancellationToken);
+  }
+
   public async Task<CloseOrderResult> CloseOrderStateOnlyAsync(Guid orderId, PaymentResult paymentResult, CancellationToken cancellationToken = default)
   {
     var order = await LoadOrderAsync(orderId, cancellationToken);

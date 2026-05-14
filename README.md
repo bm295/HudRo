@@ -27,6 +27,8 @@
 - `src/Adapters/Console`
  - Presenter hiển thị bill và báo cáo cuối ca.
 
+- Tài liệu bounded contexts: `docs/bounded-contexts.md` (phân tách Order/Payment/Inventory/Reporting và reason-to-change).
+
 ## Runtime
 
 - .NET: `net10.0`

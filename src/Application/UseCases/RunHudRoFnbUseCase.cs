@@ -10,10 +10,10 @@ public sealed class RunHudRoFnbUseCase(
   public Task<Guid> CreateOrderAsync(CreateOrderCommand command, CancellationToken cancellationToken = default)
     => orderService.CreateOrderAsync(command, cancellationToken);
 
-  public Task AddItemAsync(AddItemCommand command, CancellationToken cancellationToken = default)
+  public Task AddItemAsync(AddOrderItemCommand command, CancellationToken cancellationToken = default)
     => orderService.AddItemAsync(command, cancellationToken);
 
-  public Task RemoveItemAsync(RemoveItemCommand command, CancellationToken cancellationToken = default)
+  public Task RemoveItemAsync(RemoveOrderItemCommand command, CancellationToken cancellationToken = default)
     => orderService.RemoveItemAsync(command, cancellationToken);
 
   public Task SendToKitchenAsync(Guid orderId, CancellationToken cancellationToken = default)
@@ -25,6 +25,6 @@ public sealed class RunHudRoFnbUseCase(
   public Task<CloseOrderResult> CloseOrderAsync(Guid orderId, PaymentResult paymentResult, CancellationToken cancellationToken = default)
     => orderService.CloseOrderStateOnlyAsync(orderId, paymentResult, cancellationToken);
 
-  public Task<ServiceSummary> BuildDailySummaryAsync(CancellationToken cancellationToken = default)
-    => reportingService.BuildDailySummaryAsync(cancellationToken);
+  public Task<ServiceSummaryResult> BuildDailySummaryAsync(BuildServiceSummaryQuery query, CancellationToken cancellationToken = default)
+    => reportingService.BuildDailySummaryAsync(query, cancellationToken);
 }

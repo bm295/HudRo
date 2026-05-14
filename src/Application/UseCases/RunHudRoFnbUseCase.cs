@@ -4,7 +4,7 @@ namespace DataStructures.Application.UseCases;
 
 public sealed class RunHudRoFnbUseCase(
   OrderApplicationService orderService,
-  PaymentApplicationService paymentService,
+  CheckoutOrderWorkflow checkoutOrderWorkflow,
   ReportingApplicationService reportingService)
 {
   public Task<Guid> CreateOrderAsync(CreateOrderCommand command, CancellationToken cancellationToken = default)
@@ -19,11 +19,8 @@ public sealed class RunHudRoFnbUseCase(
   public Task SendToKitchenAsync(Guid orderId, CancellationToken cancellationToken = default)
     => orderService.SendToKitchenAsync(orderId, cancellationToken);
 
-  public Task<PaymentResult> ProcessPaymentAsync(ProcessPaymentCommand command, CancellationToken cancellationToken = default)
-    => paymentService.ProcessPaymentAsync(command, cancellationToken);
-
-  public Task<CloseOrderResult> CloseOrderAsync(Guid orderId, PaymentResult paymentResult, CancellationToken cancellationToken = default)
-    => orderService.CloseOrderStateOnlyAsync(orderId, paymentResult, cancellationToken);
+  public Task<CloseOrderResult> CheckoutOrderAsync(ProcessPaymentCommand command, CancellationToken cancellationToken = default)
+    => checkoutOrderWorkflow.ExecuteAsync(command, cancellationToken);
 
   public Task<ServiceSummaryResult> BuildDailySummaryAsync(BuildServiceSummaryQuery query, CancellationToken cancellationToken = default)
     => reportingService.BuildDailySummaryAsync(query, cancellationToken);

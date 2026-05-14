@@ -1,8 +1,16 @@
 using DataStructures.Domain;
+using DataStructures.Domain.Payments;
 
 namespace DataStructures.Application.Models;
 
-public sealed record PaymentResult(Guid OrderId, decimal Amount, PaymentMethod Method, string PaymentReference);
+public sealed record PaymentResult(
+  Guid OrderId,
+  decimal Amount,
+  PaymentMethod Method,
+  string PaymentReference,
+  PaymentStatus Status,
+  int RetryCount,
+  string? FailureReason);
 
 public sealed record CloseOrderResult(TableBill Bill);
 

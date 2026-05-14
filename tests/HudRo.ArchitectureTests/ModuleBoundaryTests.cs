@@ -11,13 +11,13 @@ namespace HudRo.ArchitectureTests;
 public sealed class ModuleBoundaryTests
 {
   [Fact]
-  public void OrderNamespace_ShouldNotDependOn_IPaymentPort()
+  public void OrderNamespace_ShouldNotDependOn_IPaymentGatewayPort()
   {
     var result = Types.InAssembly(typeof(OrderApplicationService).Assembly)
       .That()
       .ResideInNamespace("DataStructures.Application.Order", true)
       .ShouldNot()
-      .HaveDependencyOn(typeof(IPaymentPort).FullName!)
+      .HaveDependencyOn(typeof(IPaymentGatewayPort).FullName!)
       .GetResult();
 
     Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames));
@@ -33,7 +33,7 @@ public sealed class ModuleBoundaryTests
       .HaveDependencyOnAny(
         typeof(IOrderPort).FullName!,
         typeof(IInventoryPort).FullName!,
-        typeof(IPaymentPort).FullName!)
+        typeof(IPaymentGatewayPort).FullName!)
       .GetResult();
 
     Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames));

@@ -3,7 +3,7 @@ using DataStructures.Domain;
 
 namespace DataStructures.Infrastructure;
 
-public sealed class FakePaymentGatewayAdapter : IPaymentPort
+public sealed class FakePaymentGatewayAdapter : IPaymentGatewayPort
 {
   public Task<string> ChargeAsync(Guid orderId, decimal amount, PaymentMethod paymentMethod, CancellationToken cancellationToken)
   {

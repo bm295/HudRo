@@ -41,6 +41,7 @@ public static class InfrastructureServiceCollectionExtensions
         ["DRINK02"] = new("DRINK02", "Sparkling Water", 100),
       },
       Orders = new Dictionary<Guid, Order>(),
+      Payments = new Dictionary<Guid, DataStructures.Domain.Payments.Payment>(),
     });
 
     return services;
@@ -51,7 +52,8 @@ public static class InfrastructureServiceCollectionExtensions
     services.AddSingleton<IFnbReadPort, InMemoryFnbReadAdapter>();
     services.AddSingleton<IOrderPort, InMemoryOrderAdapter>();
     services.AddSingleton<IInventoryPort, InMemoryInventoryAdapter>();
-    services.AddSingleton<IPaymentPort, FakePaymentGatewayAdapter>();
+    services.AddSingleton<IPaymentAggregatePort, InMemoryPaymentAggregateAdapter>();
+    services.AddSingleton<IPaymentGatewayPort, FakePaymentGatewayAdapter>();
 
     return services;
   }

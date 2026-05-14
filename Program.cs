@@ -47,6 +47,10 @@ services.AddSingleton<IFnbReadPort, InMemoryFnbReadAdapter>();
 services.AddSingleton<IOrderPort, InMemoryOrderAdapter>();
 services.AddSingleton<IInventoryPort, InMemoryInventoryAdapter>();
 services.AddSingleton<IPaymentPort, FakePaymentGatewayAdapter>();
+services.AddSingleton<OrderApplicationService>();
+services.AddSingleton<InventoryApplicationService>();
+services.AddSingleton<PaymentApplicationService>();
+services.AddSingleton<ReportingApplicationService>();
 services.AddSingleton<RunHudRoFnbUseCase>();
 services.AddSingleton<FnbConsolePresenter>();
 

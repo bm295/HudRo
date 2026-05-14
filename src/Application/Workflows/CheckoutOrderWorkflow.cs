@@ -1,7 +1,9 @@
 using DataStructures.Application.Models;
+using DataStructures.Application.Inventory;
+using DataStructures.Application.Payment;
 using DataStructures.Domain;
 
-namespace DataStructures.Application.UseCases;
+namespace DataStructures.Application.Order;
 
 public sealed class CheckoutOrderWorkflow(
   OrderApplicationService orderService,

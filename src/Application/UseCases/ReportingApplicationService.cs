@@ -2,13 +2,13 @@ using DataStructures.Application.Models;
 using DataStructures.Application.Ports;
 using DataStructures.Domain;
 
-namespace DataStructures.Application.UseCases;
+namespace DataStructures.Application.Reporting;
 
 public sealed class ReportingApplicationService(IFnbReadPort readPort)
 {
   public async Task<ServiceSummaryResult> BuildDailySummaryAsync(BuildServiceSummaryQuery query, CancellationToken cancellationToken = default)
   {
-    await ValidateCapacityAsync(cancellationToken);
+    await EnsureCapacityWithinProfileAsync(cancellationToken);
 
     var profile = await readPort.GetProfileAsync(cancellationToken);
     var tables = await readPort.GetTablesAsync(cancellationToken);
@@ -40,7 +40,7 @@ public sealed class ReportingApplicationService(IFnbReadPort readPort)
       bills);
   }
 
-  public async Task ValidateCapacityAsync(CancellationToken cancellationToken = default)
+  private async Task EnsureCapacityWithinProfileAsync(CancellationToken cancellationToken = default)
   {
     var profile = await readPort.GetProfileAsync(cancellationToken);
     var seats = (await readPort.GetTablesAsync(cancellationToken)).Sum(t => t.Seats);

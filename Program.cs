@@ -1,7 +1,10 @@
 using DataStructures.Adapters.Console;
 using DataStructures.Application.DependencyInjection;
 using DataStructures.Application.Models;
-using DataStructures.Application.UseCases;
+using DataStructures.Application.Order;
+using DataStructures.Application.Inventory;
+using DataStructures.Application.Payment;
+using DataStructures.Application.Reporting;
 using DataStructures.Infrastructure.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 

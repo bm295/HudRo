@@ -2,7 +2,7 @@ using DataStructures.Application.Models;
 using DataStructures.Application.Ports;
 using DataStructures.Domain;
 
-namespace DataStructures.Application.UseCases;
+namespace DataStructures.Application.Payment;
 
 public sealed class PaymentApplicationService(
   IFnbReadPort readPort,

@@ -1,7 +1,7 @@
 using DataStructures.Application.Ports;
 using DataStructures.Domain;
 
-namespace DataStructures.Application.UseCases;
+namespace DataStructures.Application.Inventory;
 
 public sealed class InventoryApplicationService(IInventoryPort inventoryPort)
 {

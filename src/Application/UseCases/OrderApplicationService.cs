@@ -2,7 +2,7 @@ using DataStructures.Application.Models;
 using DataStructures.Application.Ports;
 using DataStructures.Domain;
 
-namespace DataStructures.Application.UseCases;
+namespace DataStructures.Application.Order;
 
 public sealed class OrderApplicationService(IFnbReadPort readPort, IOrderPort orderPort)
 {

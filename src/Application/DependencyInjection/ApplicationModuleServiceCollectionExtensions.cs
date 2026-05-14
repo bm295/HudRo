@@ -1,4 +1,7 @@
-using DataStructures.Application.UseCases;
+using DataStructures.Application.Order;
+using DataStructures.Application.Inventory;
+using DataStructures.Application.Payment;
+using DataStructures.Application.Reporting;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DataStructures.Application.DependencyInjection;

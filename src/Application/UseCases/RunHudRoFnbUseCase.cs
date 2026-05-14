@@ -1,6 +1,8 @@
 using DataStructures.Application.Models;
+using DataStructures.Application.Order;
+using DataStructures.Application.Reporting;
 
-namespace DataStructures.Application.UseCases;
+namespace DataStructures.Application;
 
 public sealed class RunHudRoFnbUseCase(
   OrderApplicationService orderService,

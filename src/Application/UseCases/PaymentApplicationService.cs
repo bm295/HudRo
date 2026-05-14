@@ -1,24 +1,48 @@
 using DataStructures.Application.Models;
 using DataStructures.Application.Ports;
 using DataStructures.Domain;
+using DataStructures.Domain.Payments;
 
 namespace DataStructures.Application.Payment;
 
 public sealed class PaymentApplicationService(
   IFnbReadPort readPort,
   IOrderPort orderPort,
-  IPaymentPort paymentPort)
+  IPaymentAggregatePort paymentAggregatePort,
+  IPaymentGatewayPort paymentGatewayPort)
 {
   public async Task<PaymentResult> ChargeOrderAsync(Order order, PaymentMethod method, CancellationToken cancellationToken = default)
   {
     var menu = await readPort.GetMenuAsync(cancellationToken);
     var total = CalculateTotal(order, menu);
 
-    var paymentReference = await paymentPort.ChargeAsync(order.Id, total, method, cancellationToken);
-    order.MarkPaid();
-    await orderPort.SaveAsync(order, cancellationToken);
+    var payment = await paymentAggregatePort.FindByOrderIdAsync(order.Id, cancellationToken)
+      ?? Domain.Payments.Payment.CreateNew(order.Id, total, method);
 
-    return new PaymentResult(order.Id, total, method, paymentReference);
+    if (payment.Status == PaymentStatus.Failed && payment.CanRetry())
+    {
+      payment.Retry();
+    }
+
+    try
+    {
+      var paymentReference = await paymentGatewayPort.ChargeAsync(order.Id, total, method, cancellationToken);
+      payment.Authorize(paymentReference);
+      payment.Capture();
+
+      order.MarkPaid();
+      await orderPort.SaveAsync(order, cancellationToken);
+    }
+    catch (Exception ex)
+    {
+      payment.Fail(ex.Message);
+      await paymentAggregatePort.SaveAsync(payment, cancellationToken);
+      throw;
+    }
+
+    await paymentAggregatePort.SaveAsync(payment, cancellationToken);
+
+    return new PaymentResult(order.Id, payment.Amount, payment.Method, payment.Reference!, payment.Status, payment.RetryCount, payment.FailureReason);
   }
 
   private static decimal CalculateTotal(Order order, IReadOnlyDictionary<string, MenuItem> menu)

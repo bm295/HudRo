@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using DataStructures.Application.Models;
 using DataStructures.Application.Inventory;
 using DataStructures.Application.Payment;
@@ -10,68 +11,33 @@ public sealed class CheckoutOrderWorkflow(
   InventoryApplicationService inventoryService,
   PaymentApplicationService paymentService)
 {
-  private static readonly Dictionary<Guid, CheckoutProgress> ProgressBySession = new();
+  private static readonly ConcurrentDictionary<Guid, CheckoutProgress> ProgressBySession = new();
 
   public async Task<CloseOrderResult> ExecuteAsync(CheckoutOrderCommand command, CancellationToken cancellationToken = default)
   {
     var progress = GetOrCreateProgress(command.CheckoutSessionId, command.OrderId, command.PaymentAttemptId);
     var order = await orderService.LoadOrderAsync(command.OrderId, cancellationToken);
+
     ValidateReadyToCheckout(order);
 
     try
     {
-      if (!progress.InventoryDeducted)
-      {
-        await inventoryService.EnsureAvailableAsync(order, cancellationToken);
-        await inventoryService.DeductAsync(order, cancellationToken);
-        progress.InventoryDeducted = true;
-      }
-
-      if (progress.PaymentResult is null)
-      {
-        progress.PaymentResult = await paymentService.ChargeOrderAsync(order, command.Method, command.PaymentAttemptId, cancellationToken);
-      }
-
-      if (!progress.OrderClosed)
-      {
-        progress.CloseOrderResult = await orderService.CloseOrderStateOnlyAsync(order.Id, progress.PaymentResult, cancellationToken);
-        progress.OrderClosed = true;
-      }
+      await ReserveOrDeductInventoryAsync(order, progress, cancellationToken);
+      await AuthorizeAndCapturePaymentAsync(order, command, progress, cancellationToken);
+      await CloseOrderAsync(order, progress, cancellationToken);
 
       return progress.CloseOrderResult!;
     }
     catch
     {
-      if (progress.InventoryDeducted && progress.PaymentResult is null)
-      {
-        await inventoryService.RestoreAsync(order, cancellationToken);
-        progress.InventoryDeducted = false;
-      }
-
+      await CompensateAsync(order, progress, cancellationToken);
       throw;
     }
   }
 
   private static CheckoutProgress GetOrCreateProgress(Guid checkoutSessionId, Guid orderId, Guid paymentAttemptId)
   {
-    if (ProgressBySession.TryGetValue(checkoutSessionId, out var existing))
-    {
-      if (existing.OrderId != orderId)
-      {
-        throw new InvalidOperationException($"CheckoutSessionId {checkoutSessionId} already belongs to order {existing.OrderId}.");
-      }
-
-      if (existing.PaymentAttemptId != paymentAttemptId)
-      {
-        throw new InvalidOperationException($"CheckoutSessionId {checkoutSessionId} already uses PaymentAttemptId {existing.PaymentAttemptId}.");
-      }
-
-      return existing;
-    }
-
-    var progress = new CheckoutProgress(orderId, paymentAttemptId);
-    ProgressBySession[checkoutSessionId] = progress;
-    return progress;
+    return ProgressBySession.GetOrAdd(checkoutSessionId, _ => new CheckoutProgress(orderId, paymentAttemptId));
   }
 
   private static void ValidateReadyToCheckout(Order order)
@@ -87,11 +53,87 @@ public sealed class CheckoutOrderWorkflow(
     }
   }
 
+  private async Task ReserveOrDeductInventoryAsync(Order order, CheckoutProgress progress, CancellationToken cancellationToken)
+  {
+    EnsureCommandConsistency(progress, order.Id, progress.PaymentAttemptId);
+
+    if (progress.InventoryState == InventoryState.Deducted)
+    {
+      return;
+    }
+
+    await inventoryService.EnsureAvailableAsync(order, cancellationToken);
+    await inventoryService.DeductAsync(order, cancellationToken);
+    progress.InventoryState = InventoryState.Deducted;
+  }
+
+  private async Task AuthorizeAndCapturePaymentAsync(
+    Order order,
+    CheckoutOrderCommand command,
+    CheckoutProgress progress,
+    CancellationToken cancellationToken)
+  {
+    EnsureCommandConsistency(progress, command.OrderId, command.PaymentAttemptId);
+
+    if (progress.PaymentResult is not null)
+    {
+      return;
+    }
+
+    progress.PaymentResult = await paymentService.ChargeOrderAsync(order, command.Method, command.PaymentAttemptId, cancellationToken);
+  }
+
+  private async Task CloseOrderAsync(Order order, CheckoutProgress progress, CancellationToken cancellationToken)
+  {
+    if (progress.CloseOrderResult is not null)
+    {
+      return;
+    }
+
+    if (progress.PaymentResult is null)
+    {
+      throw new InvalidOperationException("Cannot close order before payment is captured.");
+    }
+
+    progress.CloseOrderResult = await orderService.CloseOrderStateOnlyAsync(order.Id, progress.PaymentResult, cancellationToken);
+  }
+
+  private async Task CompensateAsync(Order order, CheckoutProgress progress, CancellationToken cancellationToken)
+  {
+    // Compensation policy:
+    // - Failed before payment capture: restore deducted inventory.
+    // - Failed after payment capture: do NOT auto-refund here to avoid accidental double-refund;
+    //   keep session idempotency and allow safe retry to finish close-order step.
+    if (progress.InventoryState == InventoryState.Deducted && progress.PaymentResult is null)
+    {
+      await inventoryService.RestoreAsync(order, cancellationToken);
+      progress.InventoryState = InventoryState.NotTouched;
+    }
+  }
+
+  private static void EnsureCommandConsistency(CheckoutProgress progress, Guid orderId, Guid paymentAttemptId)
+  {
+    if (progress.OrderId != orderId)
+    {
+      throw new InvalidOperationException($"Checkout session is bound to order {progress.OrderId}, but received {orderId}.");
+    }
+
+    if (progress.PaymentAttemptId != paymentAttemptId)
+    {
+      throw new InvalidOperationException($"Checkout session is bound to payment attempt {progress.PaymentAttemptId}, but received {paymentAttemptId}.");
+    }
+  }
+
   private sealed record CheckoutProgress(Guid OrderId, Guid PaymentAttemptId)
   {
-    public bool InventoryDeducted { get; set; }
-    public bool OrderClosed { get; set; }
+    public InventoryState InventoryState { get; set; }
     public PaymentResult? PaymentResult { get; set; }
     public CloseOrderResult? CloseOrderResult { get; set; }
+  }
+
+  private enum InventoryState
+  {
+    NotTouched = 0,
+    Deducted = 1,
   }
 }

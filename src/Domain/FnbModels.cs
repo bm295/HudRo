@@ -10,8 +10,10 @@ public enum OrderStatus
 {
   Draft = 0,
   SentToKitchen = 1,
-  Paid = 2,
-  Closed = 3,
+  Preparing = 2,
+  Served = 3,
+  Paid = 4,
+  Closed = 5,
 }
 
 public enum PaymentMethod
@@ -121,8 +123,20 @@ public sealed class Order
 
   public void MarkPaid()
   {
-    EnsureStatus(OrderStatus.SentToKitchen);
+    EnsureStatus(OrderStatus.Served);
     Status = OrderStatus.Paid;
+  }
+
+  public void MarkPreparing()
+  {
+    EnsureStatus(OrderStatus.SentToKitchen);
+    Status = OrderStatus.Preparing;
+  }
+
+  public void MarkServed()
+  {
+    EnsureStatus(OrderStatus.Preparing);
+    Status = OrderStatus.Served;
   }
 
   public void Close()

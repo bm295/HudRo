@@ -42,7 +42,7 @@ public sealed class CheckoutOrderWorkflow(
 
   private static void ValidateReadyToCheckout(Order order)
   {
-    if (order.Status != OrderStatus.SentToKitchen)
+    if (order.Status != OrderStatus.Served)
     {
       throw new InvalidOperationException($"Order {order.Id} is not ready for checkout. Current status: {order.Status}.");
     }

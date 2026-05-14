@@ -22,7 +22,7 @@ public sealed class RunHudRoFnbUseCase(
   public Task SendToKitchenAsync(Guid orderId, CancellationToken cancellationToken = default)
     => orderService.SendToKitchenAsync(orderId, cancellationToken);
 
-  public Task<CloseOrderResult> CheckoutOrderAsync(ProcessPaymentCommand command, CancellationToken cancellationToken = default)
+  public Task<CloseOrderResult> CheckoutOrderAsync(CheckoutOrderCommand command, CancellationToken cancellationToken = default)
     => checkoutOrderWorkflow.ExecuteAsync(command, cancellationToken);
 
   public Task<ServiceSummaryResult> BuildDailySummaryAsync(BuildServiceSummaryQuery query, CancellationToken cancellationToken = default)

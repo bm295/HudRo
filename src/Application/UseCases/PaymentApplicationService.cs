@@ -11,13 +11,18 @@ public sealed class PaymentApplicationService(
   IPaymentAggregatePort paymentAggregatePort,
   IPaymentGatewayPort paymentGatewayPort)
 {
-  public async Task<PaymentResult> ChargeOrderAsync(Order order, PaymentMethod method, CancellationToken cancellationToken = default)
+  public async Task<PaymentResult> ChargeOrderAsync(Order order, PaymentMethod method, Guid paymentAttemptId, CancellationToken cancellationToken = default)
   {
     var menu = await readPort.GetMenuAsync(cancellationToken);
     var total = CalculateTotal(order, menu);
 
     var payment = await paymentAggregatePort.FindByOrderIdAsync(order.Id, cancellationToken)
       ?? Domain.Payments.Payment.CreateNew(order.Id, total, method);
+
+    if (payment.Status == PaymentStatus.Captured)
+    {
+      return new PaymentResult(order.Id, payment.Amount, payment.Method, payment.Reference!, payment.Status, payment.RetryCount, payment.FailureReason);
+    }
 
     if (payment.Status == PaymentStatus.Failed && payment.CanRetry())
     {
@@ -26,7 +31,7 @@ public sealed class PaymentApplicationService(
 
     try
     {
-      var paymentReference = await paymentGatewayPort.ChargeAsync(order.Id, total, method, cancellationToken);
+      var paymentReference = await paymentGatewayPort.ChargeAsync(order.Id, total, method, paymentAttemptId, cancellationToken);
       payment.Authorize(paymentReference);
       payment.Capture();
 

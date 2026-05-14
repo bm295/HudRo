@@ -41,7 +41,7 @@ await orderService.AddItemAsync(new AddOrderItemCommand(orderId, "MAIN01", 4));
 await orderService.RemoveItemAsync(new RemoveOrderItemCommand(orderId, "DRINK01", 1));
 await orderService.SendToKitchenAsync(orderId);
 
-await checkoutWorkflow.ExecuteAsync(new ProcessPaymentCommand(orderId, PaymentMethod.Card));
+await checkoutWorkflow.ExecuteAsync(new CheckoutOrderCommand(orderId, PaymentMethod.Card, Guid.NewGuid(), Guid.NewGuid()));
 
 var summary = await reportingService.BuildDailySummaryAsync(new BuildServiceSummaryQuery(DateOnly.FromDateTime(DateTime.UtcNow)));
 presenter.Show(summary);

@@ -1,10 +1,10 @@
-using DataStructures.Domain;
+using DataStructures.Application.Models;
 
 namespace DataStructures.Adapters.Console;
 
 public sealed class FnbConsolePresenter
 {
-  public void Show(ServiceSummary summary)
+  public void Show(ServiceSummaryResult summary)
   {
     Console.WriteLine("=== FnB Management Demo ===");
     Console.WriteLine($"Restaurant: {summary.Profile.Name}");

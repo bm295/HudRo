@@ -60,13 +60,13 @@ var useCase = provider.GetRequiredService<RunHudRoFnbUseCase>();
 var presenter = provider.GetRequiredService<FnbConsolePresenter>();
 
 var orderId = await useCase.CreateOrderAsync(new CreateOrderCommand("T01", 4));
-await useCase.AddItemAsync(new AddItemCommand(orderId, "DRINK01", 4));
-await useCase.AddItemAsync(new AddItemCommand(orderId, "MAIN01", 4));
-await useCase.RemoveItemAsync(new RemoveItemCommand(orderId, "DRINK01", 1));
+await useCase.AddItemAsync(new AddOrderItemCommand(orderId, "DRINK01", 4));
+await useCase.AddItemAsync(new AddOrderItemCommand(orderId, "MAIN01", 4));
+await useCase.RemoveItemAsync(new RemoveOrderItemCommand(orderId, "DRINK01", 1));
 await useCase.SendToKitchenAsync(orderId);
 
 var payment = await useCase.ProcessPaymentAsync(new ProcessPaymentCommand(orderId, PaymentMethod.Card));
 await useCase.CloseOrderAsync(orderId, payment);
 
-var summary = await useCase.BuildDailySummaryAsync();
+var summary = await useCase.BuildDailySummaryAsync(new BuildServiceSummaryQuery(DateOnly.FromDateTime(DateTime.UtcNow)));
 presenter.Show(summary);

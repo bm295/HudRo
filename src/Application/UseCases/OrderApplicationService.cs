@@ -32,7 +32,7 @@ public sealed class OrderApplicationService(IFnbReadPort readPort, IOrderPort or
     return order.Id;
   }
 
-  public async Task AddItemAsync(AddItemCommand command, CancellationToken cancellationToken = default)
+  public async Task AddItemAsync(AddOrderItemCommand command, CancellationToken cancellationToken = default)
   {
     var order = await LoadOrderAsync(command.OrderId, cancellationToken);
     var menu = await readPort.GetMenuAsync(cancellationToken);
@@ -46,7 +46,7 @@ public sealed class OrderApplicationService(IFnbReadPort readPort, IOrderPort or
     await orderPort.SaveAsync(order, cancellationToken);
   }
 
-  public async Task RemoveItemAsync(RemoveItemCommand command, CancellationToken cancellationToken = default)
+  public async Task RemoveItemAsync(RemoveOrderItemCommand command, CancellationToken cancellationToken = default)
   {
     var order = await LoadOrderAsync(command.OrderId, cancellationToken);
     order.RemoveItem(command.MenuCode, command.Quantity);

@@ -6,7 +6,7 @@ namespace DataStructures.Application.UseCases;
 
 public sealed class ReportingApplicationService(IFnbReadPort readPort)
 {
-  public async Task<ServiceSummary> BuildDailySummaryAsync(CancellationToken cancellationToken = default)
+  public async Task<ServiceSummaryResult> BuildDailySummaryAsync(BuildServiceSummaryQuery query, CancellationToken cancellationToken = default)
   {
     await ValidateCapacityAsync(cancellationToken);
 
@@ -31,7 +31,7 @@ public sealed class ReportingApplicationService(IFnbReadPort readPort)
       })
       .ToArray();
 
-    return new ServiceSummary(
+    return new ServiceSummaryResult(
       profile,
       tables.Sum(t => t.Seats),
       bills.Sum(b => b.Guests),

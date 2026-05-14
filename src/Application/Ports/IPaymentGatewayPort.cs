@@ -4,5 +4,5 @@ namespace DataStructures.Application.Ports;
 
 public interface IPaymentGatewayPort
 {
-  Task<string> ChargeAsync(Guid orderId, decimal amount, PaymentMethod paymentMethod, CancellationToken cancellationToken);
+  Task<string> ChargeAsync(Guid orderId, decimal amount, PaymentMethod paymentMethod, Guid paymentAttemptId, CancellationToken cancellationToken);
 }

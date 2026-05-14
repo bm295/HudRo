@@ -5,14 +5,14 @@ namespace DataStructures.Infrastructure;
 
 public sealed class FakePaymentGatewayAdapter : IPaymentGatewayPort
 {
-  public Task<string> ChargeAsync(Guid orderId, decimal amount, PaymentMethod paymentMethod, CancellationToken cancellationToken)
+  public Task<string> ChargeAsync(Guid orderId, decimal amount, PaymentMethod paymentMethod, Guid paymentAttemptId, CancellationToken cancellationToken)
   {
     if (amount <= 0)
     {
       throw new InvalidOperationException($"Cannot charge non-positive amount for order {orderId}.");
     }
 
-    var paymentRef = $"PAY-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}-{orderId.ToString()[..8]}-{paymentMethod}";
+    var paymentRef = $"PAY-{paymentAttemptId:N}-{orderId.ToString()[..8]}-{paymentMethod}";
     return Task.FromResult(paymentRef);
   }
 }

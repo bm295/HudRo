@@ -20,4 +20,12 @@ public sealed class InventoryApplicationService(IInventoryPort inventoryPort)
       await inventoryPort.DeductAsync(sku, qty, cancellationToken);
     }
   }
+
+  public async Task RestoreAsync(Order order, CancellationToken cancellationToken = default)
+  {
+    foreach (var (sku, qty) in order.Items)
+    {
+      await inventoryPort.RestoreAsync(sku, qty, cancellationToken);
+    }
+  }
 }

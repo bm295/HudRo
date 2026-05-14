@@ -35,4 +35,20 @@ public sealed class InMemoryInventoryAdapter(InMemoryFnbStore store) : IInventor
     store.Inventory[sku] = item with { QuantityOnHand = item.QuantityOnHand - quantity };
     return Task.CompletedTask;
   }
+
+  public Task RestoreAsync(string sku, int quantity, CancellationToken cancellationToken)
+  {
+    if (!store.Inventory.TryGetValue(sku, out var item))
+    {
+      throw new KeyNotFoundException($"Unknown inventory sku: {sku}");
+    }
+
+    if (quantity <= 0)
+    {
+      throw new ArgumentOutOfRangeException(nameof(quantity), "Quantity must be greater than zero.");
+    }
+
+    store.Inventory[sku] = item with { QuantityOnHand = item.QuantityOnHand + quantity };
+    return Task.CompletedTask;
+  }
 }

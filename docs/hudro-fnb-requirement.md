@@ -1,8 +1,8 @@
-# Hudson Rooms – FnB Management Requirement
+# HudRo FnB Management Requirement
 
 ## Input requirement
 
-- Nhà hàng: **The Hudson Rooms – Capella Hanoi**
+- Nhà hàng: **HudRo**
 - Quy mô: khoảng **40–60 chỗ**
 - Mục tiêu: xây dựng ứng dụng quản lý FnB.
 
@@ -11,16 +11,16 @@
 1. Quản lý profile nhà hàng và cấu hình bàn trong dải 40–60 ghế.
 2. Quản lý menu và inventory theo SKU.
 3. Quản lý order theo vòng đời:
-   - Create order cho bàn.
-   - Add / remove items.
-   - Send to kitchen.
-   - Process payment.
-   - Deduct inventory.
-   - Close order.
+  - Create order cho bàn.
+  - Add / remove items.
+  - Send to kitchen.
+  - Process payment.
+  - Deduct inventory.
+  - Close order.
 4. Báo cáo cuối ca:
-   - Tổng số khách đã phục vụ.
-   - Số order đã đóng.
-   - Tổng doanh thu.
+  - Tổng số khách đã phục vụ.
+  - Số order đã đóng.
+  - Tổng doanh thu.
 
 ## Constraints
 

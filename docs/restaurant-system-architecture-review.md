@@ -1,4 +1,4 @@
-# Repository Architecture Review — The Hudson Rooms FnB Management
+# Repository Architecture Review — HudRo FnB Management
 
 This file is retained as implementation status after refactoring.
 
@@ -10,11 +10,11 @@ This file is retained as implementation status after refactoring.
 
 - Hexagonal layers are now explicit: Domain, Application (use cases + ports + commands), Infrastructure adapters, Console adapter.
 - The operational flow is implemented end-to-end:
-  1. Create order for a table
-  2. Add / remove items
-  3. Send order to kitchen
-  4. Process payment
-  5. Deduct inventory
-  6. Close order
+ 1. Create order for a table
+ 2. Add / remove items
+ 3. Send order to kitchen
+ 4. Process payment
+ 5. Deduct inventory
+ 6. Close order
 - Dependency injection is configured in `Program.cs` using `ServiceCollection`.
 - Ports and use cases are asynchronous (`Task`) to support non-blocking integrations.

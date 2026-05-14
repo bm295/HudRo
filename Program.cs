@@ -50,6 +50,7 @@ services.AddSingleton<IPaymentPort, FakePaymentGatewayAdapter>();
 services.AddSingleton<OrderApplicationService>();
 services.AddSingleton<InventoryApplicationService>();
 services.AddSingleton<PaymentApplicationService>();
+services.AddSingleton<CheckoutOrderWorkflow>();
 services.AddSingleton<ReportingApplicationService>();
 services.AddSingleton<RunHudRoFnbUseCase>();
 services.AddSingleton<FnbConsolePresenter>();
@@ -65,8 +66,7 @@ await useCase.AddItemAsync(new AddOrderItemCommand(orderId, "MAIN01", 4));
 await useCase.RemoveItemAsync(new RemoveOrderItemCommand(orderId, "DRINK01", 1));
 await useCase.SendToKitchenAsync(orderId);
 
-var payment = await useCase.ProcessPaymentAsync(new ProcessPaymentCommand(orderId, PaymentMethod.Card));
-await useCase.CloseOrderAsync(orderId, payment);
+await useCase.CheckoutOrderAsync(new ProcessPaymentCommand(orderId, PaymentMethod.Card));
 
 var summary = await useCase.BuildDailySummaryAsync(new BuildServiceSummaryQuery(DateOnly.FromDateTime(DateTime.UtcNow)));
 presenter.Show(summary);

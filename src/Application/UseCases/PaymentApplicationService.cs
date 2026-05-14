@@ -7,30 +7,18 @@ namespace DataStructures.Application.UseCases;
 public sealed class PaymentApplicationService(
   IFnbReadPort readPort,
   IOrderPort orderPort,
-  IPaymentPort paymentPort,
-  InventoryApplicationService inventoryService)
+  IPaymentPort paymentPort)
 {
-  public async Task<PaymentResult> ProcessPaymentAsync(ProcessPaymentCommand command, CancellationToken cancellationToken = default)
+  public async Task<PaymentResult> ChargeOrderAsync(Order order, PaymentMethod method, CancellationToken cancellationToken = default)
   {
-    var order = await LoadOrderAsync(command.OrderId, cancellationToken);
     var menu = await readPort.GetMenuAsync(cancellationToken);
-
     var total = CalculateTotal(order, menu);
 
-    await inventoryService.EnsureAvailableAsync(order, cancellationToken);
-    await inventoryService.DeductAsync(order, cancellationToken);
-
-    var paymentReference = await paymentPort.ChargeAsync(order.Id, total, command.Method, cancellationToken);
+    var paymentReference = await paymentPort.ChargeAsync(order.Id, total, method, cancellationToken);
     order.MarkPaid();
     await orderPort.SaveAsync(order, cancellationToken);
 
-    return new PaymentResult(order.Id, total, command.Method, paymentReference);
-  }
-
-  private async Task<Order> LoadOrderAsync(Guid orderId, CancellationToken cancellationToken)
-  {
-    return await orderPort.FindByIdAsync(orderId, cancellationToken)
-        ?? throw new KeyNotFoundException($"Order not found: {orderId}");
+    return new PaymentResult(order.Id, total, method, paymentReference);
   }
 
   private static decimal CalculateTotal(Order order, IReadOnlyDictionary<string, MenuItem> menu)

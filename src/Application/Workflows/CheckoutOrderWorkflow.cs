@@ -3,7 +3,7 @@ using DataStructures.Application.Inventory;
 using DataStructures.Application.Payment;
 using DataStructures.Domain;
 
-namespace DataStructures.Application.Order;
+namespace DataStructures.Application.Workflows;
 
 public sealed class CheckoutOrderWorkflow(
   OrderApplicationService orderService,

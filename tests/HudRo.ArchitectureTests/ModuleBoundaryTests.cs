@@ -2,6 +2,8 @@ using Xunit;
 using DataStructures.Application.Order;
 using DataStructures.Application.Ports;
 using DataStructures.Application.Reporting;
+using DataStructures.Application.Workflows;
+using DataStructures.Domain;
 using NetArchTest.Rules;
 
 namespace HudRo.ArchitectureTests;
@@ -32,6 +34,35 @@ public sealed class ModuleBoundaryTests
         typeof(IOrderPort).FullName!,
         typeof(IInventoryPort).FullName!,
         typeof(IPaymentPort).FullName!)
+      .GetResult();
+
+    Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames));
+  }
+
+  [Fact]
+  public void ApplicationNamespace_ShouldNotDependOn_ConcreteInfrastructure()
+  {
+    var result = Types.InAssembly(typeof(CheckoutOrderWorkflow).Assembly)
+      .That()
+      .ResideInNamespace("DataStructures.Application", true)
+      .ShouldNot()
+      .HaveDependencyOn("DataStructures.Infrastructure")
+      .GetResult();
+
+    Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames));
+  }
+
+  [Fact]
+  public void DomainNamespace_ShouldNotDependOn_HelperExtensionOrBackgroundNamespaces()
+  {
+    var result = Types.InAssembly(typeof(Order).Assembly)
+      .That()
+      .ResideInNamespace("DataStructures.Domain", true)
+      .ShouldNot()
+      .HaveDependencyOnAny(
+        "DataStructures.Helpers",
+        "DataStructures.Extensions",
+        "DataStructures.BackgroundServices")
       .GetResult();
 
     Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames));

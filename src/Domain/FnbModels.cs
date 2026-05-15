@@ -61,6 +61,7 @@ public sealed class InventoryItem
     Name = name;
     QuantityOnHand = quantityOnHand;
     QuantityReserved = quantityReserved;
+    EnsureStockInvariants();
   }
 
   public void Reserve(int quantity)
@@ -74,6 +75,7 @@ public sealed class InventoryItem
     }
 
     QuantityReserved += quantity;
+    EnsureStockInvariants();
   }
 
   public void Release(int quantity)
@@ -86,6 +88,7 @@ public sealed class InventoryItem
     }
 
     QuantityReserved -= quantity;
+    EnsureStockInvariants();
   }
 
   public void DeductReserved(int quantity)
@@ -99,6 +102,7 @@ public sealed class InventoryItem
 
     QuantityReserved -= quantity;
     QuantityOnHand -= quantity;
+    EnsureStockInvariants();
   }
 
   public void Adjust(int delta)
@@ -116,6 +120,38 @@ public sealed class InventoryItem
     }
 
     QuantityOnHand = updatedOnHand;
+    EnsureStockInvariants();
+  }
+
+  public bool TryDeductReservedForRetry(int quantity)
+  {
+    ValidatePositive(quantity);
+
+    if (QuantityReserved == 0)
+    {
+      return false;
+    }
+
+    DeductReserved(quantity);
+    return true;
+  }
+
+  private void EnsureStockInvariants()
+  {
+    if (QuantityOnHand < 0)
+    {
+      throw new InvalidOperationException($"On-hand quantity cannot be negative for {Sku}.");
+    }
+
+    if (QuantityReserved < 0)
+    {
+      throw new InvalidOperationException($"Reserved quantity cannot be negative for {Sku}.");
+    }
+
+    if (QuantityReserved > QuantityOnHand)
+    {
+      throw new InvalidOperationException($"Reserved quantity cannot exceed on-hand quantity for {Sku}.");
+    }
   }
 
   private static void ValidatePositive(int quantity)

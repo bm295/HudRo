@@ -6,34 +6,15 @@ namespace DataStructures.Infrastructure;
 
 public sealed class InMemoryInventoryAdapter(InMemoryFnbStore store) : IInventoryPort
 {
-  public Task ReserveAsync(string sku, int quantity, CancellationToken cancellationToken)
+  public Task<InventoryItem?> FindBySkuAsync(string sku, CancellationToken cancellationToken)
   {
-    var item = RequireInventoryItem(sku);
-    item.Reserve(quantity);
-    return Task.CompletedTask;
+    store.Inventory.TryGetValue(sku, out var item);
+    return Task.FromResult(item is null ? null : new InventoryItem(item.Sku, item.Name, item.QuantityOnHand, item.QuantityReserved));
   }
 
-  public Task ReleaseAsync(string sku, int quantity, CancellationToken cancellationToken)
+  public Task SaveAsync(InventoryItem item, CancellationToken cancellationToken)
   {
-    var item = RequireInventoryItem(sku);
-    item.Release(quantity);
+    store.Inventory[item.Sku] = item;
     return Task.CompletedTask;
-  }
-
-  public Task DeductReservedAsync(string sku, int quantity, CancellationToken cancellationToken)
-  {
-    var item = RequireInventoryItem(sku);
-    item.DeductReserved(quantity);
-    return Task.CompletedTask;
-  }
-
-  private InventoryItem RequireInventoryItem(string sku)
-  {
-    if (!store.Inventory.TryGetValue(sku, out var item))
-    {
-      throw new KeyNotFoundException($"Unknown inventory sku: {sku}");
-    }
-
-    return item;
   }
 }

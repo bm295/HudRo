@@ -23,7 +23,109 @@ public enum PaymentMethod
   BankTransfer = 2,
 }
 
-public sealed record InventoryItem(string Sku, string Name, int QuantityOnHand);
+public sealed class InventoryItem
+{
+  public string Sku { get; }
+  public string Name { get; }
+  public int QuantityOnHand { get; private set; }
+  public int QuantityReserved { get; private set; }
+
+  public InventoryItem(string sku, string name, int quantityOnHand, int quantityReserved = 0)
+  {
+    if (string.IsNullOrWhiteSpace(sku))
+    {
+      throw new ArgumentException("SKU is required.", nameof(sku));
+    }
+
+    if (string.IsNullOrWhiteSpace(name))
+    {
+      throw new ArgumentException("Name is required.", nameof(name));
+    }
+
+    if (quantityOnHand < 0)
+    {
+      throw new ArgumentOutOfRangeException(nameof(quantityOnHand), "Quantity on hand cannot be negative.");
+    }
+
+    if (quantityReserved < 0)
+    {
+      throw new ArgumentOutOfRangeException(nameof(quantityReserved), "Quantity reserved cannot be negative.");
+    }
+
+    if (quantityReserved > quantityOnHand)
+    {
+      throw new InvalidOperationException("Reserved quantity cannot exceed quantity on hand.");
+    }
+
+    Sku = sku;
+    Name = name;
+    QuantityOnHand = quantityOnHand;
+    QuantityReserved = quantityReserved;
+  }
+
+  public void Reserve(int quantity)
+  {
+    ValidatePositive(quantity);
+
+    var available = QuantityOnHand - QuantityReserved;
+    if (available < quantity)
+    {
+      throw new InvalidOperationException($"Not enough stock for {Sku}. Requested={quantity}, Available={available}");
+    }
+
+    QuantityReserved += quantity;
+  }
+
+  public void Release(int quantity)
+  {
+    ValidatePositive(quantity);
+
+    if (QuantityReserved < quantity)
+    {
+      throw new InvalidOperationException($"Cannot release {quantity} of {Sku}; only {QuantityReserved} reserved.");
+    }
+
+    QuantityReserved -= quantity;
+  }
+
+  public void DeductReserved(int quantity)
+  {
+    ValidatePositive(quantity);
+
+    if (QuantityReserved < quantity)
+    {
+      throw new InvalidOperationException($"Cannot deduct {quantity} of {Sku}; only {QuantityReserved} reserved.");
+    }
+
+    QuantityReserved -= quantity;
+    QuantityOnHand -= quantity;
+  }
+
+  public void Adjust(int delta)
+  {
+    var updatedOnHand = QuantityOnHand + delta;
+    if (updatedOnHand < 0)
+    {
+      throw new InvalidOperationException($"Adjustment would make stock negative for {Sku}.");
+    }
+
+    if (updatedOnHand < QuantityReserved)
+    {
+      throw new InvalidOperationException(
+        $"Adjustment would make on-hand lower than reserved for {Sku}. OnHand={updatedOnHand}, Reserved={QuantityReserved}");
+    }
+
+    QuantityOnHand = updatedOnHand;
+  }
+
+  private static void ValidatePositive(int quantity)
+  {
+    if (quantity <= 0)
+    {
+      throw new ArgumentOutOfRangeException(nameof(quantity), "Quantity must be greater than zero.");
+    }
+  }
+}
 
 public sealed record OrderItem(string MenuCode, int Quantity)
 {

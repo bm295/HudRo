@@ -1,54 +1,39 @@
 using DataStructures.Application.Ports;
+using DataStructures.Domain;
 
 namespace DataStructures.Infrastructure;
 
+
 public sealed class InMemoryInventoryAdapter(InMemoryFnbStore store) : IInventoryPort
 {
-  public Task EnsureAvailableAsync(string sku, int quantity, CancellationToken cancellationToken)
+  public Task ReserveAsync(string sku, int quantity, CancellationToken cancellationToken)
   {
-    if (!store.Inventory.TryGetValue(sku, out var item))
-    {
-      throw new KeyNotFoundException($"Unknown inventory sku: {sku}");
-    }
-
-    if (quantity <= 0)
-    {
-      throw new ArgumentOutOfRangeException(nameof(quantity), "Quantity must be greater than zero.");
-    }
-
-    if (item.QuantityOnHand < quantity)
-    {
-      throw new InvalidOperationException(
-        $"Not enough stock for {sku}. Requested={quantity}, Available={item.QuantityOnHand}");
-    }
-
+    var item = RequireInventoryItem(sku);
+    item.Reserve(quantity);
     return Task.CompletedTask;
   }
 
-  public Task DeductAsync(string sku, int quantity, CancellationToken cancellationToken)
+  public Task ReleaseAsync(string sku, int quantity, CancellationToken cancellationToken)
   {
-    if (!store.Inventory.TryGetValue(sku, out var item))
-    {
-      throw new KeyNotFoundException($"Unknown inventory sku: {sku}");
-    }
-
-    store.Inventory[sku] = item with { QuantityOnHand = item.QuantityOnHand - quantity };
+    var item = RequireInventoryItem(sku);
+    item.Release(quantity);
     return Task.CompletedTask;
   }
 
-  public Task RestoreAsync(string sku, int quantity, CancellationToken cancellationToken)
+  public Task DeductReservedAsync(string sku, int quantity, CancellationToken cancellationToken)
+  {
+    var item = RequireInventoryItem(sku);
+    item.DeductReserved(quantity);
+    return Task.CompletedTask;
+  }
+
+  private InventoryItem RequireInventoryItem(string sku)
   {
     if (!store.Inventory.TryGetValue(sku, out var item))
     {
       throw new KeyNotFoundException($"Unknown inventory sku: {sku}");
     }
 
-    if (quantity <= 0)
-    {
-      throw new ArgumentOutOfRangeException(nameof(quantity), "Quantity must be greater than zero.");
-    }
-
-    store.Inventory[sku] = item with { QuantityOnHand = item.QuantityOnHand + quantity };
-    return Task.CompletedTask;
+    return item;
   }
 }

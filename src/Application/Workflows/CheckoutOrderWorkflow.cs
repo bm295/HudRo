@@ -22,8 +22,9 @@ public sealed class CheckoutOrderWorkflow(
 
     try
     {
-      await ReserveOrDeductInventoryAsync(order, progress, cancellationToken);
+      await ReserveInventoryAsync(order, progress, cancellationToken);
       await AuthorizeAndCapturePaymentAsync(order, command, progress, cancellationToken);
+      await DeductReservedInventoryAsync(order, progress, cancellationToken);
       await CloseOrderAsync(order, progress, cancellationToken);
 
       return progress.CloseOrderResult!;
@@ -53,17 +54,32 @@ public sealed class CheckoutOrderWorkflow(
     }
   }
 
-  private async Task ReserveOrDeductInventoryAsync(Order order, CheckoutProgress progress, CancellationToken cancellationToken)
+  private async Task ReserveInventoryAsync(Order order, CheckoutProgress progress, CancellationToken cancellationToken)
   {
     EnsureCommandConsistency(progress, order.Id, progress.PaymentAttemptId);
 
+    if (progress.InventoryState != InventoryState.NotTouched)
+    {
+      return;
+    }
+
+    await inventoryService.ReserveAsync(order, cancellationToken);
+    progress.InventoryState = InventoryState.Reserved;
+  }
+
+  private async Task DeductReservedInventoryAsync(Order order, CheckoutProgress progress, CancellationToken cancellationToken)
+  {
     if (progress.InventoryState == InventoryState.Deducted)
     {
       return;
     }
 
-    await inventoryService.EnsureAvailableAsync(order, cancellationToken);
-    await inventoryService.DeductAsync(order, cancellationToken);
+    if (progress.InventoryState != InventoryState.Reserved)
+    {
+      throw new InvalidOperationException("Cannot deduct inventory before reservation is completed.");
+    }
+
+    await inventoryService.DeductReservedAsync(order, cancellationToken);
     progress.InventoryState = InventoryState.Deducted;
   }
 
@@ -104,9 +120,9 @@ public sealed class CheckoutOrderWorkflow(
     // - Failed before payment capture: restore deducted inventory.
     // - Failed after payment capture: do NOT auto-refund here to avoid accidental double-refund;
     //   keep session idempotency and allow safe retry to finish close-order step.
-    if (progress.InventoryState == InventoryState.Deducted && progress.PaymentResult is null)
+    if (progress.InventoryState == InventoryState.Reserved && progress.PaymentResult is null)
     {
-      await inventoryService.RestoreAsync(order, cancellationToken);
+      await inventoryService.ReleaseAsync(order, cancellationToken);
       progress.InventoryState = InventoryState.NotTouched;
     }
   }
@@ -134,6 +150,7 @@ public sealed class CheckoutOrderWorkflow(
   private enum InventoryState
   {
     NotTouched = 0,
-    Deducted = 1,
+    Reserved = 1,
+    Deducted = 2,
   }
 }

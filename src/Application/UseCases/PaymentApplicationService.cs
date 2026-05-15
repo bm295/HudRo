@@ -19,15 +19,12 @@ public sealed class PaymentApplicationService(
     var payment = await paymentAggregatePort.FindByOrderIdAsync(order.Id, cancellationToken)
       ?? Domain.Payments.Payment.CreateNew(order.Id, total, method);
 
-    if (payment.Status == PaymentStatus.Captured)
+    if (payment.IsCaptured())
     {
       return new PaymentResult(order.Id, payment.Amount, payment.Method, payment.Reference!, payment.Status, payment.RetryCount, payment.FailureReason);
     }
 
-    if (payment.NeedsRetry())
-    {
-      payment.Retry();
-    }
+    payment.RetryIfNeeded();
 
     try
     {

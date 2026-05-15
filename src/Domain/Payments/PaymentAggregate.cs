@@ -62,6 +62,9 @@ public sealed class Payment
   public bool NeedsRetry()
     => Status == PaymentStatus.Failed && RetryCount < MaxRetryCount;
 
+  public bool IsCaptured()
+    => Status == PaymentStatus.Captured;
+
   public void Authorize(string reference, DateTimeOffset? authorizedAt = null)
   {
     if (string.IsNullOrWhiteSpace(reference))
@@ -121,6 +124,14 @@ public sealed class Payment
 
   public bool CanRetry()
     => NeedsRetry();
+
+  public void RetryIfNeeded()
+  {
+    if (NeedsRetry())
+    {
+      Retry();
+    }
+  }
 
   private void EnsureStatus(PaymentStatus expected)
   {

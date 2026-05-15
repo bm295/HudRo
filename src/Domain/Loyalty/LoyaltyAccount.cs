@@ -1,38 +1,16 @@
 namespace DataStructures.Domain.Loyalty;
 
-public enum LoyaltyTier
-{
-  Bronze = 0,
-  Silver = 1,
-  Gold = 2,
-}
-
-public enum LoyaltyTransactionType
-{
-  Accrual = 0,
-  Redemption = 1,
-  Reversal = 2,
-}
-
-public sealed record LoyaltyTransaction(
-  Guid Id,
-  LoyaltyTransactionType Type,
-  int Points,
-  Guid? RelatedOrderId,
-  Guid? ReversedTransactionId,
-  DateTimeOffset OccurredAtUtc);
-
 public sealed class LoyaltyAccount
 {
-  private readonly Dictionary<Guid, LoyaltyTransaction> _transactions = new();
+  private readonly Dictionary<Guid, PointLedgerEntry> _ledgerEntries = new();
 
   public Guid Id { get; }
   public Guid CustomerId { get; }
   public int PointsBalance { get; private set; }
   public LoyaltyTier Tier { get; private set; }
-  public IReadOnlyCollection<LoyaltyTransaction> Transactions => _transactions.Values;
+  public IReadOnlyCollection<PointLedgerEntry> LedgerEntries => _ledgerEntries.Values;
 
-  public LoyaltyAccount(Guid id, Guid customerId, int pointsBalance, LoyaltyTier tier)
+  public LoyaltyAccount(Guid id, Guid customerId, int pointsBalance, LoyaltyTier tier, IEnumerable<PointLedgerEntry>? ledgerEntries = null)
   {
     if (pointsBalance < 0)
     {
@@ -43,64 +21,93 @@ public sealed class LoyaltyAccount
     CustomerId = customerId;
     PointsBalance = pointsBalance;
     Tier = tier;
-  }
 
-  public void Accrue(Guid transactionId, Guid orderId, decimal orderTotal, DateTimeOffset occurredAtUtc)
-  {
-    if (orderTotal <= 0)
+    if (ledgerEntries is null)
     {
-      throw new ArgumentOutOfRangeException(nameof(orderTotal), "Order total must be greater than zero.");
+      return;
     }
 
-    var points = Convert.ToInt32(Math.Floor(orderTotal / 10_000m));
+    foreach (var ledgerEntry in ledgerEntries)
+    {
+      AddLedgerEntry(ledgerEntry);
+    }
+  }
+
+  public void AccruePoints(Guid ledgerEntryId, Guid orderId, decimal orderTotal, DateTimeOffset occurredAtUtc, LoyaltyPointPolicy policy)
+  {
+    var points = policy.CalculateAccrualPoints(orderTotal);
     if (points <= 0)
     {
       return;
     }
 
-    AddTransaction(new LoyaltyTransaction(transactionId, LoyaltyTransactionType.Accrual, points, orderId, null, occurredAtUtc));
+    AddLedgerEntry(new PointLedgerEntry(ledgerEntryId, PointLedgerEntryType.Accrual, points, orderId, null, occurredAtUtc, policy.AccrualExpirationDays));
     PointsBalance += points;
-    RecalculateTier();
+    RecalculateTier(policy.TierPolicy);
   }
 
-  public void Redeem(Guid transactionId, int points, DateTimeOffset occurredAtUtc)
+  public void RedeemPoints(Guid ledgerEntryId, int points, DateTimeOffset occurredAtUtc, LoyaltyPointPolicy policy)
   {
     EnsurePositivePoints(points);
     EnsureAvailablePoints(points);
+    policy.ValidateRedemption(points, PointsBalance);
 
-    AddTransaction(new LoyaltyTransaction(transactionId, LoyaltyTransactionType.Redemption, points, null, null, occurredAtUtc));
+    AddLedgerEntry(new PointLedgerEntry(ledgerEntryId, PointLedgerEntryType.Redemption, points, null, null, occurredAtUtc, null));
     PointsBalance -= points;
-    RecalculateTier();
+    RecalculateTier(policy.TierPolicy);
   }
 
-  public void Reverse(Guid transactionId, Guid reversedTransactionId, DateTimeOffset occurredAtUtc)
+  public void ReverseAccrual(Guid ledgerEntryId, Guid reversedLedgerEntryId, DateTimeOffset occurredAtUtc, LoyaltyPointPolicy policy)
   {
-    if (!_transactions.TryGetValue(reversedTransactionId, out var existing))
+    if (!_ledgerEntries.TryGetValue(reversedLedgerEntryId, out var existing))
     {
-      throw new KeyNotFoundException($"Loyalty transaction not found: {reversedTransactionId}");
+      throw new KeyNotFoundException($"Loyalty ledger entry not found: {reversedLedgerEntryId}");
     }
 
-    if (_transactions.Values.Any(t => t.ReversedTransactionId == reversedTransactionId))
+    if (existing.Type != PointLedgerEntryType.Accrual)
     {
-      throw new InvalidOperationException($"Loyalty transaction {reversedTransactionId} was already reversed.");
+      throw new InvalidOperationException($"Only accrual entries can be reversed. Entry={reversedLedgerEntryId}");
     }
 
-    var adjustment = existing.Type == LoyaltyTransactionType.Accrual ? -existing.Points : existing.Points;
-    if (PointsBalance + adjustment < 0)
+    if (_ledgerEntries.Values.Any(t => t.ReversedLedgerEntryId == reversedLedgerEntryId))
+    {
+      throw new InvalidOperationException($"Loyalty ledger entry {reversedLedgerEntryId} was already reversed.");
+    }
+
+    if (PointsBalance < existing.Points)
     {
       throw new InvalidOperationException("Cannot reverse loyalty transaction because it would make points balance negative.");
     }
 
-    AddTransaction(new LoyaltyTransaction(transactionId, LoyaltyTransactionType.Reversal, Math.Abs(existing.Points), existing.RelatedOrderId, reversedTransactionId, occurredAtUtc));
-    PointsBalance += adjustment;
-    RecalculateTier();
+    AddLedgerEntry(new PointLedgerEntry(ledgerEntryId, PointLedgerEntryType.Reversal, existing.Points, existing.RelatedOrderId, reversedLedgerEntryId, occurredAtUtc, null));
+    PointsBalance -= existing.Points;
+    RecalculateTier(policy.TierPolicy);
   }
 
-  private void AddTransaction(LoyaltyTransaction transaction)
+  public int ExpirePoints(DateTimeOffset occurredAtUtc, LoyaltyPointPolicy policy)
   {
-    if (!_transactions.TryAdd(transaction.Id, transaction))
+    var expirable = _ledgerEntries.Values
+      .Where(e => e.IsAccrual() && e.ExpiresAtUtc is not null && e.ExpiresAtUtc <= occurredAtUtc)
+      .Sum(e => e.Points);
+
+    if (expirable <= 0)
     {
-      throw new InvalidOperationException($"Duplicate loyalty transaction id: {transaction.Id}");
+      return 0;
+    }
+
+    var expiredPoints = Math.Min(expirable, PointsBalance);
+    AddLedgerEntry(new PointLedgerEntry(Guid.NewGuid(), PointLedgerEntryType.Expiration, expiredPoints, null, null, occurredAtUtc, null));
+    PointsBalance -= expiredPoints;
+    RecalculateTier(policy.TierPolicy);
+
+    return expiredPoints;
+  }
+
+  private void AddLedgerEntry(PointLedgerEntry entry)
+  {
+    if (!_ledgerEntries.TryAdd(entry.Id, entry))
+    {
+      throw new InvalidOperationException($"Duplicate loyalty ledger entry id: {entry.Id}");
     }
   }
 
@@ -120,13 +127,8 @@ public sealed class LoyaltyAccount
     }
   }
 
-  private void RecalculateTier()
+  private void RecalculateTier(LoyaltyTierPolicy tierPolicy)
   {
-    Tier = PointsBalance switch
-    {
-      >= 5_000 => LoyaltyTier.Gold,
-      >= 1_000 => LoyaltyTier.Silver,
-      _ => LoyaltyTier.Bronze,
-    };
+    Tier = tierPolicy.Resolve(PointsBalance);
   }
 }

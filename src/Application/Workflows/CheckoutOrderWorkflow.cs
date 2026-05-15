@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
 using DataStructures.Application.Models;
 using DataStructures.Application.Inventory;
+using DataStructures.Application.Ports;
 using DataStructures.Application.Payment;
-using DataStructures.Application.Loyalty;
 using DataStructures.Domain;
 using DataStructures.Domain.Inventory;
 
@@ -12,7 +12,7 @@ public sealed class CheckoutOrderWorkflow(
   OrderApplicationService orderService,
   InventoryApplicationService inventoryService,
   PaymentApplicationService paymentService,
-  LoyaltyApplicationService loyaltyService)
+  ILoyaltyOperations loyaltyService)
 {
   private static readonly ConcurrentDictionary<Guid, CheckoutProgress> ProgressBySession = new();
 

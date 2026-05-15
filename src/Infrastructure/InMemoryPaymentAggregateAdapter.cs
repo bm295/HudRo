@@ -13,7 +13,7 @@ public sealed class InMemoryPaymentAggregateAdapter(InMemoryFnbStore store) : IP
 
   public Task SaveAsync(Payment payment, CancellationToken cancellationToken)
   {
-    store.Payments[payment.Id] = payment;
+    store.Payments[payment.PaymentId] = payment;
     return Task.CompletedTask;
   }
 }

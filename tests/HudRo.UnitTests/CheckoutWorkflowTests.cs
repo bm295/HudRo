@@ -76,12 +76,42 @@ public sealed class CheckoutWorkflowTests
 
   private sealed class FakeInventoryPort : IInventoryPort
   {
+    private readonly Dictionary<string, InventoryItem> _inventory = new(StringComparer.Ordinal)
+    {
+      ["M1"] = new("M1", "Pho", 10),
+    };
+
     public int ReserveCalls { get; private set; }
     public int DeductCalls { get; private set; }
     public int ReleaseCalls { get; private set; }
-    public Task ReserveAsync(string sku, int quantity, CancellationToken cancellationToken = default) { ReserveCalls++; return Task.CompletedTask; }
-    public Task DeductReservedAsync(string sku, int quantity, CancellationToken cancellationToken = default) { DeductCalls++; return Task.CompletedTask; }
-    public Task ReleaseAsync(string sku, int quantity, CancellationToken cancellationToken = default) { ReleaseCalls++; return Task.CompletedTask; }
+
+    public Task<InventoryItem?> FindBySkuAsync(string sku, CancellationToken cancellationToken = default)
+    {
+      _inventory.TryGetValue(sku, out var item);
+      return Task.FromResult(item is null ? null : new InventoryItem(item.Sku, item.Name, item.QuantityOnHand, item.QuantityReserved));
+    }
+
+    public Task SaveAsync(InventoryItem item, CancellationToken cancellationToken = default)
+    {
+      if (_inventory.TryGetValue(item.Sku, out var current))
+      {
+        if (item.QuantityReserved > current.QuantityReserved)
+        {
+          ReserveCalls++;
+        }
+        else if (item.QuantityReserved < current.QuantityReserved && item.QuantityOnHand == current.QuantityOnHand)
+        {
+          ReleaseCalls++;
+        }
+        else if (item.QuantityReserved < current.QuantityReserved && item.QuantityOnHand < current.QuantityOnHand)
+        {
+          DeductCalls++;
+        }
+      }
+
+      _inventory[item.Sku] = new InventoryItem(item.Sku, item.Name, item.QuantityOnHand, item.QuantityReserved);
+      return Task.CompletedTask;
+    }
   }
 
   private sealed class FakePaymentAggregatePort : IPaymentAggregatePort

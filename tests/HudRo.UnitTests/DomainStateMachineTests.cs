@@ -46,6 +46,32 @@ public sealed class DomainStateMachineTests
   }
 
   [Fact]
+  public void Inventory_ShouldProtectStockInvariants()
+  {
+    var item = new InventoryItem("SKU-1", "Milk", 5);
+
+    Assert.Throws<InvalidOperationException>(() => item.Adjust(-6));
+
+    item.Reserve(3);
+    Assert.Throws<InvalidOperationException>(() => item.Adjust(-3));
+  }
+
+  [Fact]
+  public void Inventory_DeductRetry_ShouldBeSafeWhenAlreadyDeducted()
+  {
+    var item = new InventoryItem("SKU-1", "Milk", 10);
+    item.Reserve(2);
+
+    var first = item.TryDeductReservedForRetry(2);
+    var second = item.TryDeductReservedForRetry(2);
+
+    Assert.True(first);
+    Assert.False(second);
+    Assert.Equal(8, item.QuantityOnHand);
+    Assert.Equal(0, item.QuantityReserved);
+  }
+
+  [Fact]
   public void Order_ShouldFollowKitchenLifecycle()
   {
     var order = new Order(Guid.NewGuid(), "T1", 2, DateTimeOffset.UtcNow);

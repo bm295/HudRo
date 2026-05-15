@@ -62,11 +62,18 @@ Mục tiêu: làm repo đạt mức **fully cohesive** theo nguyên tắc *data 
 4. Add `ILoyaltyPort` + adapter implementation.
 
 ## Phase 7 — Consistency & integration strategy
-1. Chọn strategy nhất quán liên context:
-   - transactional boundary per aggregate,
-   - outbox/event log cho eventual consistency (PaymentCaptured -> DeductInventory -> AccrueLoyalty).
-2. Thêm domain events tối thiểu:
-   - `OrderSentToKitchen`, `PaymentCaptured`, `InventoryDeducted`, `OrderClosed`.
+1. **Chốt strategy nhất quán liên context (rõ ràng, áp dụng mặc định):**
+   - **Mỗi aggregate = 1 transaction boundary độc lập** (không distributed transaction xuyên context).
+   - **Liên context dùng eventual consistency qua Outbox/Event Log** (publish-after-commit).
+   - Luồng chuẩn cho checkout: `PaymentCaptured` -> `InventoryDeducted` -> `OrderClosed` (và loyalty xử lý async ở bước sau).
+2. **Event tối thiểu bắt buộc để tích hợp context:**
+   - `PaymentCaptured`
+   - `InventoryDeducted`
+   - `OrderClosed`
+3. **Quy ước vận hành Outbox:**
+   - Ghi event vào outbox **trong cùng transaction** với aggregate state change.
+   - Dispatcher nền đọc outbox, publish ra broker, đánh dấu đã phát.
+   - Consumer phải idempotent theo `EventId`/`AggregateId` để chịu được at-least-once delivery.
 
 ## Phase 8 — Test matrix (bắt buộc để giữ cohesion)
 1. Unit tests domain-first:

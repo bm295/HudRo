@@ -24,7 +24,7 @@ public sealed class PaymentApplicationService(
       return new PaymentResult(order.Id, payment.Amount, payment.Method, payment.Reference!, payment.Status, payment.RetryCount, payment.FailureReason);
     }
 
-    if (payment.Status == PaymentStatus.Failed && payment.CanRetry())
+    if (payment.NeedsRetry())
     {
       payment.Retry();
     }

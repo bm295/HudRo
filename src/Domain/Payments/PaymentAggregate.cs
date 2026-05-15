@@ -6,13 +6,14 @@ public enum PaymentStatus
   Authorized = 1,
   Captured = 2,
   Failed = 3,
+  Cancelled = 4,
 }
 
 public sealed class Payment
 {
   public const int MaxRetryCount = 3;
 
-  public Guid Id { get; }
+  public Guid PaymentId { get; }
   public Guid OrderId { get; }
   public decimal Amount { get; }
   public PaymentMethod Method { get; }
@@ -20,25 +21,48 @@ public sealed class Payment
   public int RetryCount { get; private set; }
   public string? Reference { get; private set; }
   public string? FailureReason { get; private set; }
+  public DateTimeOffset CreatedAt { get; }
+  public DateTimeOffset UpdatedAt { get; private set; }
+  public DateTimeOffset? AuthorizedAt { get; private set; }
+  public DateTimeOffset? CapturedAt { get; private set; }
+  public DateTimeOffset? FailedAt { get; private set; }
+  public DateTimeOffset? LastRetriedAt { get; private set; }
 
-  private Payment(Guid id, Guid orderId, decimal amount, PaymentMethod method)
+  public Guid Id => PaymentId;
+
+  private Payment(Guid paymentId, Guid orderId, decimal amount, PaymentMethod method, DateTimeOffset createdAt)
   {
+    if (paymentId == Guid.Empty)
+    {
+      throw new ArgumentException("Payment id is required.", nameof(paymentId));
+    }
+
+    if (orderId == Guid.Empty)
+    {
+      throw new ArgumentException("Order id is required.", nameof(orderId));
+    }
+
     if (amount <= 0)
     {
       throw new ArgumentOutOfRangeException(nameof(amount), "Payment amount must be greater than zero.");
     }
 
-    Id = id;
+    PaymentId = paymentId;
     OrderId = orderId;
     Amount = amount;
     Method = method;
     Status = PaymentStatus.Pending;
+    CreatedAt = createdAt;
+    UpdatedAt = createdAt;
   }
 
   public static Payment CreateNew(Guid orderId, decimal amount, PaymentMethod method)
-    => new(Guid.NewGuid(), orderId, amount, method);
+    => new(Guid.NewGuid(), orderId, amount, method, DateTimeOffset.UtcNow);
 
-  public void Authorize(string reference)
+  public bool NeedsRetry()
+    => Status == PaymentStatus.Failed && RetryCount < MaxRetryCount;
+
+  public void Authorize(string reference, DateTimeOffset? authorizedAt = null)
   {
     if (string.IsNullOrWhiteSpace(reference))
     {
@@ -50,15 +74,19 @@ public sealed class Payment
     Reference = reference;
     FailureReason = null;
     Status = PaymentStatus.Authorized;
+    AuthorizedAt = authorizedAt ?? DateTimeOffset.UtcNow;
+    Touch();
   }
 
-  public void Capture()
+  public void Capture(DateTimeOffset? capturedAt = null)
   {
     EnsureStatus(PaymentStatus.Authorized);
     Status = PaymentStatus.Captured;
+    CapturedAt = capturedAt ?? DateTimeOffset.UtcNow;
+    Touch();
   }
 
-  public void Fail(string reason)
+  public void Fail(string reason, DateTimeOffset? failedAt = null)
   {
     if (string.IsNullOrWhiteSpace(reason))
     {
@@ -67,34 +95,43 @@ public sealed class Payment
 
     if (Status is PaymentStatus.Captured)
     {
-      throw new InvalidOperationException($"Payment {Id} is already captured and cannot fail.");
+      throw new InvalidOperationException($"Payment {PaymentId} is already captured and cannot fail.");
     }
 
     FailureReason = reason;
     Status = PaymentStatus.Failed;
+    FailedAt = failedAt ?? DateTimeOffset.UtcNow;
+    Touch();
   }
 
-  public void Retry()
+  public void Retry(DateTimeOffset? retriedAt = null)
   {
-    if (!CanRetry())
+    if (!NeedsRetry())
     {
-      throw new InvalidOperationException($"Payment {Id} cannot retry. Status={Status}, RetryCount={RetryCount}.");
+      throw new InvalidOperationException($"Payment {PaymentId} cannot retry. Status={Status}, RetryCount={RetryCount}.");
     }
 
     RetryCount++;
     Status = PaymentStatus.Pending;
     FailureReason = null;
     Reference = null;
+    LastRetriedAt = retriedAt ?? DateTimeOffset.UtcNow;
+    Touch();
   }
 
   public bool CanRetry()
-    => Status == PaymentStatus.Failed && RetryCount < MaxRetryCount;
+    => NeedsRetry();
 
   private void EnsureStatus(PaymentStatus expected)
   {
     if (Status != expected)
     {
-      throw new InvalidOperationException($"Payment {Id} must be {expected} but is {Status}.");
+      throw new InvalidOperationException($"Payment {PaymentId} must be {expected} but is {Status}.");
     }
+  }
+
+  private void Touch()
+  {
+    UpdatedAt = DateTimeOffset.UtcNow;
   }
 }

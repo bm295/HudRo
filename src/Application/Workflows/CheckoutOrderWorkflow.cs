@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using DataStructures.Application.Models;
 using DataStructures.Application.Inventory;
 using DataStructures.Application.Payment;
+using DataStructures.Application.Loyalty;
 using DataStructures.Domain;
 
 namespace DataStructures.Application.Workflows;
@@ -9,7 +10,8 @@ namespace DataStructures.Application.Workflows;
 public sealed class CheckoutOrderWorkflow(
   OrderApplicationService orderService,
   InventoryApplicationService inventoryService,
-  PaymentApplicationService paymentService)
+  PaymentApplicationService paymentService,
+  LoyaltyApplicationService loyaltyService)
 {
   private static readonly ConcurrentDictionary<Guid, CheckoutProgress> ProgressBySession = new();
 
@@ -26,6 +28,7 @@ public sealed class CheckoutOrderWorkflow(
       await AuthorizeAndCapturePaymentAsync(order, command, progress, cancellationToken);
       await DeductReservedInventoryAsync(order, progress, cancellationToken);
       await CloseOrderAsync(order, progress, cancellationToken);
+      await TriggerLoyaltyIntentAsync(command, progress, cancellationToken);
 
       return progress.CloseOrderResult!;
     }
@@ -140,11 +143,32 @@ public sealed class CheckoutOrderWorkflow(
     }
   }
 
+
+  private async Task TriggerLoyaltyIntentAsync(CheckoutOrderCommand command, CheckoutProgress progress, CancellationToken cancellationToken)
+  {
+    if (progress.LoyaltyIntentTriggered || progress.CloseOrderResult is null)
+    {
+      return;
+    }
+
+    await loyaltyService.AccrueAsync(
+      new LoyaltyAccrualIntent(
+        command.OrderId,
+        command.CustomerId,
+        progress.CloseOrderResult.Bill.Total,
+        Guid.NewGuid(),
+        DateTimeOffset.UtcNow),
+      cancellationToken);
+
+    progress.LoyaltyIntentTriggered = true;
+  }
+
   private sealed record CheckoutProgress(Guid OrderId, Guid PaymentAttemptId)
   {
     public InventoryState InventoryState { get; set; }
     public PaymentResult? PaymentResult { get; set; }
     public CloseOrderResult? CloseOrderResult { get; set; }
+    public bool LoyaltyIntentTriggered { get; set; }
   }
 
   private enum InventoryState

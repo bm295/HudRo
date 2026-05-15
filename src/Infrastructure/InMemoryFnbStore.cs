@@ -10,4 +10,5 @@ public sealed class InMemoryFnbStore
   public required Dictionary<string, InventoryItem> Inventory { get; init; }
   public required Dictionary<Guid, Order> Orders { get; init; }
   public required Dictionary<Guid, DataStructures.Domain.Payments.Payment> Payments { get; init; }
+  public required Dictionary<Guid, DataStructures.Domain.Loyalty.LoyaltyAccount> LoyaltyAccounts { get; init; }
 }

@@ -5,6 +5,7 @@ using DataStructures.Application.Order;
 using DataStructures.Application.Inventory;
 using DataStructures.Application.Payment;
 using DataStructures.Application.Reporting;
+using DataStructures.Application.Loyalty;
 using DataStructures.Infrastructure.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -22,6 +23,9 @@ services.AddInventoryModule();
 
 // Payment module registrations
 services.AddPaymentModule();
+
+// Loyalty module registrations
+services.AddLoyaltyModule();
 
 // Reporting module registrations
 services.AddReportingModule();
@@ -41,7 +45,7 @@ await orderService.AddItemAsync(new AddOrderItemCommand(orderId, "MAIN01", 4));
 await orderService.RemoveItemAsync(new RemoveOrderItemCommand(orderId, "DRINK01", 1));
 await orderService.SendToKitchenAsync(orderId);
 
-await checkoutWorkflow.ExecuteAsync(new CheckoutOrderCommand(orderId, PaymentMethod.Card, Guid.NewGuid(), Guid.NewGuid()));
+await checkoutWorkflow.ExecuteAsync(new CheckoutOrderCommand(orderId, PaymentMethod.Card, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()));
 
 var summary = await reportingService.BuildDailySummaryAsync(new BuildServiceSummaryQuery(DateOnly.FromDateTime(DateTime.UtcNow)));
 presenter.Show(summary);

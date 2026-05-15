@@ -42,6 +42,7 @@ public static class InfrastructureServiceCollectionExtensions
       },
       Orders = new Dictionary<Guid, Order>(),
       Payments = new Dictionary<Guid, DataStructures.Domain.Payments.Payment>(),
+      LoyaltyAccounts = new Dictionary<Guid, DataStructures.Domain.Loyalty.LoyaltyAccount>(),
     });
 
     return services;
@@ -54,6 +55,7 @@ public static class InfrastructureServiceCollectionExtensions
     services.AddSingleton<IInventoryPort, InMemoryInventoryAdapter>();
     services.AddSingleton<IPaymentAggregatePort, InMemoryPaymentAggregateAdapter>();
     services.AddSingleton<IPaymentGatewayPort, FakePaymentGatewayAdapter>();
+    services.AddSingleton<ILoyaltyAccountPort, InMemoryLoyaltyAccountAdapter>();
 
     return services;
   }

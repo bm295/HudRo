@@ -178,13 +178,13 @@ public sealed class Order
 
   public void AddItem(OrderItem item)
   {
-    EnsureStatus(OrderStatus.Draft);
+    EnsureCanEditItems();
     _items[item.MenuCode] = _items.GetValueOrDefault(item.MenuCode) + item.Quantity;
   }
 
   public void RemoveItem(string menuCode, int quantity)
   {
-    EnsureStatus(OrderStatus.Draft);
+    EnsureCanEditItems();
 
     if (!_items.TryGetValue(menuCode, out var current))
     {
@@ -213,7 +213,7 @@ public sealed class Order
 
   public void SendToKitchen()
   {
-    EnsureStatus(OrderStatus.Draft);
+    EnsureTransitionTo(OrderStatus.SentToKitchen);
 
     if (_items.Count == 0)
     {
@@ -225,26 +225,70 @@ public sealed class Order
 
   public void MarkPaid()
   {
-    EnsureStatus(OrderStatus.Served);
+    EnsureTransitionTo(OrderStatus.Paid);
     Status = OrderStatus.Paid;
   }
 
   public void MarkPreparing()
   {
-    EnsureStatus(OrderStatus.SentToKitchen);
+    EnsureTransitionTo(OrderStatus.Preparing);
     Status = OrderStatus.Preparing;
   }
 
   public void MarkServed()
   {
-    EnsureStatus(OrderStatus.Preparing);
+    EnsureTransitionTo(OrderStatus.Served);
     Status = OrderStatus.Served;
   }
 
   public void Close()
   {
-    EnsureStatus(OrderStatus.Paid);
+    EnsureTransitionTo(OrderStatus.Closed);
     Status = OrderStatus.Closed;
+  }
+
+  public void CancelDraft()
+  {
+    if (Status != OrderStatus.Draft)
+    {
+      throw new InvalidOperationException(
+        $"Only draft orders can be canceled. Order {Id} is {Status}.");
+    }
+
+    Status = OrderStatus.Closed;
+  }
+
+  public void VoidAfterPayment(string reason)
+  {
+    if (string.IsNullOrWhiteSpace(reason))
+    {
+      throw new ArgumentException("Void reason is required.", nameof(reason));
+    }
+
+    if (Status != OrderStatus.Paid)
+    {
+      throw new InvalidOperationException(
+        $"Only paid orders can be voided. Order {Id} is {Status}.");
+    }
+
+    Status = OrderStatus.Closed;
+  }
+
+  public void Reopen()
+  {
+    if (Status != OrderStatus.Closed)
+    {
+      throw new InvalidOperationException(
+        $"Only closed orders can be reopened. Order {Id} is {Status}.");
+    }
+
+    if (_items.Count == 0)
+    {
+      throw new InvalidOperationException(
+        $"Cannot reopen order {Id} because it has no items.");
+    }
+
+    Status = OrderStatus.Served;
   }
 
   public void EnsureReadyForCheckout()
@@ -257,11 +301,45 @@ public sealed class Order
     }
   }
 
-  private void EnsureStatus(OrderStatus expected)
+  private void EnsureCanEditItems()
   {
-    if (Status != expected)
+    if (Status != OrderStatus.Draft)
     {
-      throw new InvalidOperationException($"Order {Id} must be {expected} but is {Status}.");
+      throw new InvalidOperationException(
+        $"Order {Id} items can be edited only in Draft status. Current status is {Status}.");
+    }
+  }
+
+  private void EnsureTransitionTo(OrderStatus target)
+  {
+    if (target == OrderStatus.SentToKitchen && Status != OrderStatus.Draft)
+    {
+      throw new InvalidOperationException(
+        $"Order {Id} can move to SentToKitchen only from Draft. Current status is {Status}.");
+    }
+
+    if (target == OrderStatus.Preparing && Status != OrderStatus.SentToKitchen)
+    {
+      throw new InvalidOperationException(
+        $"Order {Id} can move to Preparing only from SentToKitchen. Current status is {Status}.");
+    }
+
+    if (target == OrderStatus.Served && Status != OrderStatus.Preparing)
+    {
+      throw new InvalidOperationException(
+        $"Order {Id} can move to Served only from Preparing. Current status is {Status}.");
+    }
+
+    if (target == OrderStatus.Paid && Status != OrderStatus.Served)
+    {
+      throw new InvalidOperationException(
+        $"Order {Id} can move to Paid only from Served. Current status is {Status}.");
+    }
+
+    if (target == OrderStatus.Closed && Status != OrderStatus.Paid)
+    {
+      throw new InvalidOperationException(
+        $"Order {Id} can move to Closed only from Paid. Current status is {Status}.");
     }
   }
 }

@@ -61,6 +61,44 @@ public sealed class DomainStateMachineTests
   }
 
   [Fact]
+  public void Order_ShouldEnforceKitchenTransitionGuards()
+  {
+    var order = new Order(Guid.NewGuid(), "T1", 2, DateTimeOffset.UtcNow);
+    order.AddItem(OrderItem.Create("M1", 1));
+
+    var preparingBeforeSend = Assert.Throws<InvalidOperationException>(() => order.MarkPreparing());
+    Assert.Contains("SentToKitchen only from Draft", preparingBeforeSend.Message);
+
+    order.SendToKitchen();
+    order.MarkPreparing();
+    order.MarkServed();
+
+    var closeBeforePaid = Assert.Throws<InvalidOperationException>(() => order.Close());
+    Assert.Contains("Closed only from Paid", closeBeforePaid.Message);
+  }
+
+  [Fact]
+  public void Order_ShouldSupportExceptionalFlowsWithInvariants()
+  {
+    var draft = new Order(Guid.NewGuid(), "T1", 2, DateTimeOffset.UtcNow);
+    draft.AddItem(OrderItem.Create("M1", 1));
+    draft.CancelDraft();
+    Assert.Equal(OrderStatus.Closed, draft.Status);
+
+    var paidOrder = new Order(Guid.NewGuid(), "T2", 2, DateTimeOffset.UtcNow);
+    paidOrder.AddItem(OrderItem.Create("M1", 1));
+    paidOrder.SendToKitchen();
+    paidOrder.MarkPreparing();
+    paidOrder.MarkServed();
+    paidOrder.MarkPaid();
+    paidOrder.VoidAfterPayment("customer chargeback");
+    Assert.Equal(OrderStatus.Closed, paidOrder.Status);
+
+    paidOrder.Reopen();
+    Assert.Equal(OrderStatus.Served, paidOrder.Status);
+  }
+
+  [Fact]
   public void Loyalty_ShouldAccrueRedeemAndReverse()
   {
     var account = new LoyaltyAccount(Guid.NewGuid(), Guid.NewGuid(), 0, LoyaltyTier.Bronze);

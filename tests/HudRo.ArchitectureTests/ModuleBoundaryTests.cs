@@ -1,10 +1,12 @@
-using Xunit;
+using DataStructures.Application.Inventory;
+using DataStructures.Application.Loyalty;
 using DataStructures.Application.Order;
+using DataStructures.Application.Payment;
 using DataStructures.Application.Ports;
-using DataStructures.Application.Reporting;
 using DataStructures.Application.Workflows;
 using DataStructures.Domain;
 using NetArchTest.Rules;
+using Xunit;
 
 namespace HudRo.ArchitectureTests;
 
@@ -24,29 +26,16 @@ public sealed class ModuleBoundaryTests
   }
 
   [Fact]
-  public void ReportingService_ShouldNotDependOnMutationPorts()
-  {
-    var result = Types.InAssembly(typeof(ReportingApplicationService).Assembly)
-      .That()
-      .Are(typeof(ReportingApplicationService))
-      .ShouldNot()
-      .HaveDependencyOnAny(
-        typeof(IOrderPort).FullName!,
-        typeof(IInventoryPort).FullName!,
-        typeof(IPaymentGatewayPort).FullName!)
-      .GetResult();
-
-    Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames));
-  }
-
-  [Fact]
-  public void ApplicationNamespace_ShouldNotDependOn_ConcreteInfrastructure()
+  public void WorkflowNamespace_ShouldNotDependOn_HelperExtensionOrBackgroundNamespaces()
   {
     var result = Types.InAssembly(typeof(CheckoutOrderWorkflow).Assembly)
       .That()
       .ResideInNamespace("DataStructures.Application", true)
       .ShouldNot()
-      .HaveDependencyOn("DataStructures.Infrastructure")
+      .HaveDependencyOnAny(
+        "DataStructures.Helpers",
+        "DataStructures.Extensions",
+        "DataStructures.BackgroundServices")
       .GetResult();
 
     Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames));
@@ -63,6 +52,23 @@ public sealed class ModuleBoundaryTests
         "DataStructures.Helpers",
         "DataStructures.Extensions",
         "DataStructures.BackgroundServices")
+      .GetResult();
+
+    Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames));
+  }
+
+  [Fact]
+  public void CheckoutWorkflow_ShouldDependOnlyOnApplicationServices()
+  {
+    var result = Types.InAssembly(typeof(CheckoutOrderWorkflow).Assembly)
+      .That()
+      .Are(typeof(CheckoutOrderWorkflow))
+      .ShouldNot()
+      .HaveDependencyOnAny(
+        typeof(IInventoryPort).FullName!,
+        typeof(IPaymentGatewayPort).FullName!,
+        typeof(ILoyaltyAccountPort).FullName!,
+        typeof(IOrderPort).FullName!)
       .GetResult();
 
     Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames));

@@ -247,6 +247,16 @@ public sealed class Order
     Status = OrderStatus.Closed;
   }
 
+  public void EnsureReadyForCheckout()
+  {
+    EnsureStatus(OrderStatus.Served);
+
+    if (_items.Count == 0)
+    {
+      throw new InvalidOperationException($"Order {Id} has no items and cannot be checked out.");
+    }
+  }
+
   private void EnsureStatus(OrderStatus expected)
   {
     if (Status != expected)

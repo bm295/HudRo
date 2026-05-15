@@ -4,6 +4,7 @@ using DataStructures.Application.Inventory;
 using DataStructures.Application.Payment;
 using DataStructures.Application.Loyalty;
 using DataStructures.Domain;
+using DataStructures.Domain.Inventory;
 
 namespace DataStructures.Application.Workflows;
 
@@ -20,7 +21,7 @@ public sealed class CheckoutOrderWorkflow(
     var progress = GetOrCreateProgress(command.CheckoutSessionId, command.OrderId, command.PaymentAttemptId);
     var order = await orderService.LoadOrderAsync(command.OrderId, cancellationToken);
 
-    ValidateReadyToCheckout(order);
+    order.EnsureReadyForCheckout();
 
     try
     {
@@ -44,46 +45,28 @@ public sealed class CheckoutOrderWorkflow(
     return ProgressBySession.GetOrAdd(checkoutSessionId, _ => new CheckoutProgress(orderId, paymentAttemptId));
   }
 
-  private static void ValidateReadyToCheckout(Order order)
-  {
-    if (order.Status != OrderStatus.Served)
-    {
-      throw new InvalidOperationException($"Order {order.Id} is not ready for checkout. Current status: {order.Status}.");
-    }
-
-    if (order.Items.Count == 0)
-    {
-      throw new InvalidOperationException($"Order {order.Id} has no items and cannot be checked out.");
-    }
-  }
-
   private async Task ReserveInventoryAsync(Order order, CheckoutProgress progress, CancellationToken cancellationToken)
   {
     EnsureCommandConsistency(progress, order.Id, progress.PaymentAttemptId);
 
-    if (progress.InventoryState != InventoryState.NotTouched)
+    if (!progress.InventoryLifecycle.IsReservationRequired())
     {
       return;
     }
 
     await inventoryService.ReserveAsync(order, cancellationToken);
-    progress.InventoryState = InventoryState.Reserved;
+    progress.InventoryLifecycle.MarkReserved();
   }
 
   private async Task DeductReservedInventoryAsync(Order order, CheckoutProgress progress, CancellationToken cancellationToken)
   {
-    if (progress.InventoryState == InventoryState.Deducted)
+    if (!progress.InventoryLifecycle.IsDeductionRequired())
     {
       return;
     }
 
-    if (progress.InventoryState != InventoryState.Reserved)
-    {
-      throw new InvalidOperationException("Cannot deduct inventory before reservation is completed.");
-    }
-
     await inventoryService.DeductReservedAsync(order, cancellationToken);
-    progress.InventoryState = InventoryState.Deducted;
+    progress.InventoryLifecycle.MarkDeducted();
   }
 
   private async Task AuthorizeAndCapturePaymentAsync(
@@ -123,10 +106,10 @@ public sealed class CheckoutOrderWorkflow(
     // - Failed before payment capture: restore deducted inventory.
     // - Failed after payment capture: do NOT auto-refund here to avoid accidental double-refund;
     //   keep session idempotency and allow safe retry to finish close-order step.
-    if (progress.InventoryState == InventoryState.Reserved && progress.PaymentResult is null)
+    if (progress.InventoryLifecycle.ShouldReleaseOnFailureWithoutPayment() && progress.PaymentResult is null)
     {
       await inventoryService.ReleaseAsync(order, cancellationToken);
-      progress.InventoryState = InventoryState.NotTouched;
+      progress.InventoryLifecycle.MarkReleased();
     }
   }
 
@@ -165,16 +148,9 @@ public sealed class CheckoutOrderWorkflow(
 
   private sealed record CheckoutProgress(Guid OrderId, Guid PaymentAttemptId)
   {
-    public InventoryState InventoryState { get; set; }
+    public InventoryCheckoutLifecycle InventoryLifecycle { get; } = new();
     public PaymentResult? PaymentResult { get; set; }
     public CloseOrderResult? CloseOrderResult { get; set; }
     public bool LoyaltyIntentTriggered { get; set; }
-  }
-
-  private enum InventoryState
-  {
-    NotTouched = 0,
-    Reserved = 1,
-    Deducted = 2,
   }
 }

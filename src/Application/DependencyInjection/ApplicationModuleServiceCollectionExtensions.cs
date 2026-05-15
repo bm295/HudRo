@@ -2,6 +2,7 @@ using DataStructures.Application.Order;
 using DataStructures.Application.Inventory;
 using DataStructures.Application.Payment;
 using DataStructures.Application.Reporting;
+using DataStructures.Application.Loyalty;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DataStructures.Application.DependencyInjection;
@@ -26,6 +27,13 @@ public static class ApplicationModuleServiceCollectionExtensions
   public static IServiceCollection AddPaymentModule(this IServiceCollection services)
   {
     services.AddSingleton<PaymentApplicationService>();
+
+    return services;
+  }
+
+  public static IServiceCollection AddLoyaltyModule(this IServiceCollection services)
+  {
+    services.AddSingleton<LoyaltyApplicationService>();
 
     return services;
   }

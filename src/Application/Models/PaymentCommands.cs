@@ -8,4 +8,5 @@ public sealed record CheckoutOrderCommand(
   Guid OrderId,
   PaymentMethod Method,
   Guid CheckoutSessionId,
-  Guid PaymentAttemptId);
+  Guid PaymentAttemptId,
+  Guid CustomerId);

@@ -14,6 +14,37 @@ namespace HudRo.UnitTests;
 
 public sealed class CheckoutWorkflowTests
 {
+
+  [Fact]
+  public async Task Checkout_IdempotentReplay_ShouldNotMutateStateAcrossModulesAgain()
+  {
+    var order = BuildServedOrder();
+    var menu = new Dictionary<string, MenuItem> { ["M1"] = new("M1", "Pho", 50_000m) };
+
+    var readPort = new FakeReadPort(menu);
+    var orderPort = new FakeOrderPort(order);
+    var inventoryPort = new FakeInventoryPort();
+    var paymentAggregatePort = new FakePaymentAggregatePort();
+    var paymentGatewayPort = new StableGatewayPort();
+    var loyaltyPort = new FakeLoyaltyPort();
+
+    var workflow = new CheckoutOrderWorkflow(
+      new OrderApplicationService(readPort, orderPort),
+      new InventoryApplicationService(inventoryPort),
+      new PaymentApplicationService(readPort, orderPort, paymentAggregatePort, paymentGatewayPort),
+      new LoyaltyApplicationService(loyaltyPort));
+
+    var cmd = new CheckoutOrderCommand(Guid.NewGuid(), order.Id, PaymentMethod.Card, Guid.NewGuid(), Guid.NewGuid());
+
+    await workflow.ExecuteAsync(cmd);
+    await workflow.ExecuteAsync(cmd);
+
+    Assert.Equal(1, inventoryPort.ReserveCalls);
+    Assert.Equal(1, inventoryPort.DeductCalls);
+    Assert.Equal(1, paymentGatewayPort.CallCount);
+    Assert.Equal(1, loyaltyPort.AccrualCalls);
+  }
+
   [Fact]
   public async Task Checkout_ShouldHandleSuccessRetryAndIdempotency()
   {
@@ -132,9 +163,26 @@ public sealed class CheckoutWorkflowTests
     }
   }
 
+  private sealed class StableGatewayPort : IPaymentGatewayPort
+  {
+    public int CallCount { get; private set; }
+    public Task<string> ChargeAsync(Guid orderId, decimal amount, PaymentMethod method, Guid paymentAttemptId, CancellationToken cancellationToken = default)
+    {
+      CallCount++;
+      return Task.FromResult("PAY-REF-STABLE-1");
+    }
+  }
+
   private sealed class FakeLoyaltyPort : ILoyaltyAccountPort
   {
+    public int AccrualCalls { get; private set; }
+
     public Task<LoyaltyAccount?> FindByCustomerIdAsync(Guid customerId, CancellationToken cancellationToken = default) => Task.FromResult<LoyaltyAccount?>(null);
-    public Task SaveAsync(LoyaltyAccount account, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task SaveAsync(LoyaltyAccount account, CancellationToken cancellationToken = default)
+    {
+      AccrualCalls++;
+      return Task.CompletedTask;
+    }
   }
 }

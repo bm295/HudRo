@@ -24,8 +24,11 @@ public sealed class PaymentApplicationService(
       return new PaymentResult(order.Id, payment.Amount, payment.Method, payment.Reference!, payment.Status, payment.RetryCount, payment.FailureReason);
     }
 
-    // Application/background layer decides when to trigger retry; aggregate decides if allowed.
-    _ = payment.TryStartRetryAttempt();
+    // Explicit retry trigger in foreground flow; aggregate guards retry eligibility.
+    if (payment.Status == PaymentStatus.Failed)
+    {
+      payment.TryStartRetryAttempt();
+    }
 
     try
     {

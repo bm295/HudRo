@@ -27,6 +27,20 @@ public sealed class DomainStateMachineTests
     Assert.Throws<InvalidOperationException>(() => payment.Retry());
   }
 
+
+  [Fact]
+  public void Payment_RetryPolicy_ShouldBeExplicitAndBoundedByAggregateState()
+  {
+    var payment = Payment.CreateNew(Guid.NewGuid(), 120_000m, PaymentMethod.Card);
+
+    Assert.False(payment.TryStartRetryAttempt()); // pending payment must not silently mutate
+
+    payment.Fail("gateway-timeout");
+    Assert.True(payment.TryStartRetryAttempt());
+    Assert.Equal(PaymentStatus.Pending, payment.Status);
+    Assert.Equal(1, payment.RetryCount);
+  }
+
   [Fact]
   public void Inventory_ShouldReserveDeductAndRelease()
   {

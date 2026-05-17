@@ -125,12 +125,13 @@ public sealed class Payment
   public bool CanRetry()
     => NeedsRetry();
 
-  public void RetryIfNeeded()
+  public bool TryStartRetryAttempt(DateTimeOffset? triggeredAt = null)
   {
-    if (NeedsRetry())
-    {
-      Retry();
-    }
+    if (!CanRetry())
+      return false;
+
+    Retry(triggeredAt);
+    return true;
   }
 
   private void EnsureStatus(PaymentStatus expected)

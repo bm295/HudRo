@@ -1,0 +1,99 @@
+<header class="topbar">
+  <div>
+    <h1>HudRo FnB</h1>
+    @if (operations; as data) {
+      <p>{{ data.profile.name }}: {{ data.summary.configuredSeats }} ghế, yêu cầu {{ data.profile.minSeats }}–{{ data.profile.maxSeats }}</p>
+    }
+  </div>
+  <button type="button" class="iconButton" title="Làm mới" aria-label="Làm mới" (click)="load()" [disabled]="busy">↻</button>
+</header>
+
+@if (operations; as data) {
+  <main class="layout">
+    <section class="workspace">
+      <div class="sectionHeader">
+        <h2>Sơ đồ bàn</h2>
+        <form class="inlineForm" (ngSubmit)="createOrder()">
+          <select name="tableId" aria-label="Bàn" [(ngModel)]="tableId" [disabled]="busy || !availableTables.length">
+            @for (table of availableTables; track table.id) {
+              <option [value]="table.id">{{ table.id }} - {{ table.seats }} ghế</option>
+            }
+          </select>
+          <input name="guests" type="number" min="1" required aria-label="Số khách" [(ngModel)]="guests" [disabled]="busy">
+          <button type="submit" [disabled]="busy || !availableTables.length || guests < 1">Mở order</button>
+        </form>
+      </div>
+      <div class="tableGrid">
+        @for (table of data.tables; track table.id) {
+          <article class="tableTile" [class.busy]="table.activeOrderId">
+            <strong>{{ table.id }}</strong>
+            <span class="muted">{{ table.seats }} ghế</span>
+            <span>{{ table.status ? (statusText[table.status] || table.status) : 'Trống' }}</span>
+          </article>
+        }
+      </div>
+
+      <h2>Order đang phục vụ</h2>
+      <div class="orders">
+        @for (order of data.openOrders; track order.id) {
+          <article class="orderCard">
+            <div class="orderTitle">
+              <div><h2>{{ order.tableId }} - {{ order.guests }} khách</h2><span class="muted">{{ order.id.slice(0, 8) }}</span></div>
+              <span class="badge">{{ statusText[order.status] || order.status }}</span>
+            </div>
+            @for (line of order.lines; track line.menuCode) {
+              <div class="line"><span>{{ line.name }} × {{ line.quantity }}</span><strong>{{ line.lineTotal | currency:'VND':'symbol':'1.0-0':'vi' }}</strong></div>
+            }
+            <div class="line"><strong>Tổng</strong><strong>{{ order.total | currency:'VND':'symbol':'1.0-0':'vi' }}</strong></div>
+            @if (order.status === 'Draft') {
+              <div class="lineActions">
+                <select #menuCode aria-label="Món" [disabled]="busy">
+                  @for (item of data.menu; track item.code) { <option [value]="item.code">{{ item.name }}</option> }
+                </select>
+                <input #quantity type="number" min="1" value="1" aria-label="Số lượng" [disabled]="busy">
+                <button type="button" [disabled]="busy" (click)="changeItem(order, menuCode.value, +quantity.value)">Thêm</button>
+                <button type="button" class="secondary" [disabled]="busy || !order.lines.length" (click)="changeItem(order, menuCode.value, +quantity.value, true)">Bớt</button>
+              </div>
+            }
+            <div class="actions">
+              @switch (order.status) {
+                @case ('Draft') { <button type="button" [disabled]="busy || !order.lines.length" (click)="advance(order, 'send')">Gửi bếp</button> }
+                @case ('SentToKitchen') { <button type="button" [disabled]="busy" (click)="advance(order, 'prepare')">Bếp nhận</button> }
+                @case ('Preparing') { <button type="button" [disabled]="busy" (click)="advance(order, 'serve')">Đã phục vụ</button> }
+                @case ('Served') {
+                  <select #paymentMethod aria-label="Phương thức thanh toán" [disabled]="busy">
+                    <option value="Card">Thẻ</option><option value="Cash">Tiền mặt</option><option value="BankTransfer">Chuyển khoản</option>
+                  </select>
+                  <button type="button" [disabled]="busy" (click)="advance(order, 'checkout', paymentMethod.value)">Thanh toán</button>
+                }
+              }
+            </div>
+          </article>
+        } @empty {
+          <p class="muted">Chưa có order đang phục vụ.</p>
+        }
+      </div>
+    </section>
+
+    <aside class="side">
+      <section><h2>Menu</h2><div class="list">
+        @for (item of data.menu; track item.code) {
+          <div class="listItem"><div><strong>{{ item.name }}</strong><div class="muted">{{ item.code }}</div></div><span>{{ item.price | currency:'VND':'symbol':'1.0-0':'vi' }}</span></div>
+        }
+      </div></section>
+      <section><h2>Tồn kho</h2><div class="list">
+        @for (item of data.inventory; track item.sku) {
+          <div class="listItem"><div><strong>{{ item.name }}</strong><div class="muted">{{ item.sku }}</div></div><span>{{ item.quantityOnHand - item.quantityReserved }}/{{ item.quantityOnHand }}</span></div>
+        }
+      </div></section>
+      <section><h2>Cuối ca</h2><dl class="summary">
+        <div><dt>Khách đã phục vụ</dt><dd>{{ data.summary.servedGuests }}</dd></div>
+        <div><dt>Order đã đóng</dt><dd>{{ data.summary.ordersClosed }}</dd></div>
+        <div><dt>Doanh thu</dt><dd>{{ data.summary.revenue | currency:'VND':'symbol':'1.0-0':'vi' }}</dd></div>
+      </dl></section>
+    </aside>
+  </main>
+} @else {
+  <main class="loading">Đang tải dữ liệu...</main>
+}
+@if (message) { <div class="toast show" [class.error]="error" role="status" aria-live="polite">{{ message }}</div> }

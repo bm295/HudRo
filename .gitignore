@@ -15,3 +15,5 @@ obj/
 .dotnet/
 .idea/
 TestResults/
+# Angular writes this empty build metadata beside the hosted client.
+/wwwroot/prerendered-routes.json

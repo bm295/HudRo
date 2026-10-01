@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   color-scheme: light;
   font-family: Inter, "Segoe UI", Arial, sans-serif;
   background: #f6f7f9;
@@ -258,3 +258,6 @@ input {
     flex-direction: column;
   }
 }
+
+.loading { padding: 28px; color: #65717d; }
+.toast.error { background: #991b1b; }

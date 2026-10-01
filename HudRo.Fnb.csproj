@@ -10,8 +10,8 @@
 
  <ItemGroup>
   <Compile Remove="bin\**;obj\**;tests\**" />
-  <Content Remove="bin\**;obj\**;tests\**" />
-  <None Remove="bin\**;obj\**;tests\**" />
+  <Content Remove="bin\**;obj\**;tests\**;client\**" />
+  <None Remove="bin\**;obj\**;tests\**;client\**" />
  </ItemGroup>
 
  <ItemGroup>

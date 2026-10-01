@@ -5,6 +5,7 @@
 ### Prerequisites
 
 - .NET SDK 10.0 or newer.
+- Node.js and npm for rebuilding the Angular client.
 - A terminal opened at the repository root.
 
 Check the installed SDK:
@@ -19,7 +20,18 @@ dotnet --version
 dotnet restore
 ```
 
-### Build the web app
+### Build the Angular client
+
+```bash
+cd client
+npm ci
+npm run build
+cd ..
+```
+
+The Angular source is in `client/`. Its production build is written to `wwwroot/` and served by ASP.NET Core. Commit the updated `wwwroot/` files when changing the client.
+
+### Build the API and hosted web app
 
 ```bash
 dotnet build HudRo.Fnb.csproj
@@ -57,7 +69,8 @@ dotnet test --no-restore
 
 - The app uses an in-memory store, so data resets when the process stops.
 - Current sample seating is 52 seats, within the HudRo requirement of 40-60 seats.
-- The UI is served from `wwwroot/`; the API endpoints are defined in `Program.cs`.
+- The Angular UI is served from `wwwroot/`; the API endpoints are defined in `Program.cs`.
+- For live client development, run `npm start` in `client/` while the .NET API runs on port 5058. Open `http://localhost:4200`; the Angular dev server proxies `/api` to .NET.
 - The default local URL is configured in `appsettings.json`.
 
 Ứng dụng mẫu quản lý FnB cho **HudRo** theo kiến trúc **Hexagonal Architecture (Ports & Adapters)**.

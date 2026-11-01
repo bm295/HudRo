@@ -85,3 +85,61 @@ output/tool/provider không hợp lệ → 502; timeout provider → 504.
 Tài liệu chính thức:
 - https://developers.openai.com/api/docs/guides/structured-outputs
 - https://developers.openai.com/api/docs/guides/function-calling
+
+## 7. Project hoàn chỉnh: API + automated tests
+
+Phạm vi assistant hiện tại là tư vấn menu một lượt hỏi, dựa trên menu đang có trong
+HudRo. Demo chạy offline; OpenAI mode gọi model thật. Không lưu lịch sử hội thoại.
+
+API: `POST /api/assistant/menu`, `Content-Type: application/json`.
+
+```json
+{"message":"Gợi ý món cho hai người","template":"menu-concise-v1"}
+```
+
+Response 200 (mã món cụ thể phụ thuộc menu):
+
+```json
+{
+  "mode":"demo",
+  "template":"menu-concise-v1",
+  "suggestion":{"summary":"...","menuCodes":["..."]},
+  "tools":["get_menu"]
+}
+```
+
+| Trường hợp | HTTP |
+| --- | --- |
+| JSON sai, message trống/quá 2000 ký tự, template lạ | 400 |
+| Tool không hợp lệ, output sai schema/mã món, refusal, lỗi provider | 502 |
+| Provider timeout hoặc tổng thời gian xử lý vượt 60 giây | 504 |
+
+OpenAI mode thiếu API key/model sẽ dừng ngay lúc khởi động với thông báo cấu hình.
+Mỗi HTTP request tới provider có timeout 30 giây; cả chuỗi tool/model có deadline
+60 giây. Client ngắt kết nối sẽ truyền cancellation tới provider. Không retry tự
+động để tránh phát sinh thêm lượt gọi có phí ngoài dự kiến. Output từ chối mã món
+trùng và mã món không thuộc menu, không tự sửa kết quả model.
+
+Chạy toàn bộ suite (unit, adapter, HTTP integration, architecture):
+
+```bash
+dotnet restore HudRo.Fnb.sln
+dotnet test HudRo.Fnb.sln --configuration Release
+```
+
+- `HudRo.UnitTests`: nghiệp vụ, prompt, validation, tool allowlist, giới hạn lượt
+  gọi, hallucinated code; fake HTTP transport kiểm tra request schema, parsing,
+  refusal, response thiếu trường, 401/429/500 và cancellation.
+- `HudRo.ApiTests`: chạy ASP.NET Core thật trong test host, gửi HTTP JSON để kiểm
+  tra 200/400/502/504, hai template, mã món có trong menu, không thay đổi dữ liệu
+  vận hành và các request đồng thời có tool conversation độc lập.
+- `HudRo.ArchitectureTests`: các ranh giới phụ thuộc module hiện có.
+
+Tất cả automated tests chạy offline, không dùng key thật và không phát sinh phí
+model. Test adapter dùng HTTP handler giả nên chưa xác nhận tương thích với một
+model cụ thể; kiểm tra model thật bằng curl ở mục 2. Các test này kiểm tra hợp đồng
+và hành vi kỹ thuật, không đánh giá độ ngon/phù hợp khẩu vị của đề xuất.
+
+GitHub Actions chạy toàn bộ solution trên push master và pull request, xuất test
+results cùng coverage. Trước khi triển khai public vẫn cần xác thực và quota cho
+người dùng như lưu ý đầu tài liệu.

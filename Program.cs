@@ -32,7 +32,12 @@ var assistantMode = builder.Configuration["Assistant:Mode"] ?? "Demo";
 if (assistantMode.Equals("Demo", StringComparison.OrdinalIgnoreCase))
   builder.Services.AddSingleton<IAssistantModel, DemoAssistantModel>();
 else if (assistantMode.Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
+{
+  if (string.IsNullOrWhiteSpace(builder.Configuration["Assistant:ApiKey"]) ||
+      string.IsNullOrWhiteSpace(builder.Configuration["Assistant:Model"]))
+    throw new InvalidOperationException("Configure Assistant:ApiKey and Assistant:Model for OpenAI mode.");
   builder.Services.AddHttpClient<IAssistantModel, OpenAiAssistantModel>(client => client.Timeout = TimeSpan.FromSeconds(30));
+}
 else
   throw new InvalidOperationException("Assistant:Mode must be Demo or OpenAI.");
 builder.Services.AddScoped<MenuAssistant>();
@@ -41,7 +46,9 @@ var app = builder.Build();
 
 app.MapPost("/api/assistant/menu", async (AssistantRequest request, MenuAssistant assistant, CancellationToken ct) =>
 {
-  try { return Results.Ok(await assistant.RunAsync(request, ct)); }
+  using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+  deadline.CancelAfter(TimeSpan.FromSeconds(60));
+  try { return Results.Ok(await assistant.RunAsync(request, deadline.Token)); }
   catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
   catch (Exception ex) when (ex is InvalidDataException or JsonException or HttpRequestException or KeyNotFoundException)
   { return Results.Problem("Assistant returned an invalid response or provider is unavailable.", statusCode: 502); }
@@ -243,3 +250,6 @@ public sealed record OperationsView(
   IReadOnlyList<InventoryItem> Inventory,
   IReadOnlyList<OrderView> OpenOrders,
   ServiceSummaryResult Summary);
+
+// Entry point exposed for in-process HTTP integration tests.
+public partial class Program { }

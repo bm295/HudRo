@@ -27,22 +27,22 @@ jobs:
       - name: Restore
         run: dotnet restore HudRo.Fnb.sln
 
-      - name: Restore unit tests
-        run: dotnet restore tests/HudRo.UnitTests/HudRo.UnitTests.csproj
-
       - name: Build
-        run: |
-          dotnet build HudRo.Fnb.sln --configuration Release --no-restore
-          dotnet build tests/HudRo.UnitTests/HudRo.UnitTests.csproj --configuration Release --no-restore
+        run: dotnet build HudRo.Fnb.sln --configuration Release --no-restore
 
       - name: Test with coverage
         run: |
-          dotnet test tests/HudRo.UnitTests/HudRo.UnitTests.csproj \
-            --configuration Release \
-            --no-build \
+          dotnet test HudRo.Fnb.sln --configuration Release --no-build \
             --collect:"XPlat Code Coverage" \
-            --results-directory ./TestResults/UnitTests \
-            --logger "trx;LogFileName=unit-tests.trx"
+            --results-directory ./TestResults \
+            --logger trx
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults
 
       - name: Install report generator
         run: dotnet tool install --global dotnet-reportgenerator-globaltool

@@ -1,3 +1,6 @@
+using DataStructures.Application.Assistant;
+using DataStructures.Infrastructure.Assistant;
+using System.Text.Json;
 using DataStructures.Application.DependencyInjection;
 using DataStructures.Application.Models;
 using DataStructures.Application.Order;
@@ -25,7 +28,26 @@ builder.Services.AddPaymentModule();
 builder.Services.AddLoyaltyModule();
 builder.Services.AddReportingModule();
 
+var assistantMode = builder.Configuration["Assistant:Mode"] ?? "Demo";
+if (assistantMode.Equals("Demo", StringComparison.OrdinalIgnoreCase))
+  builder.Services.AddSingleton<IAssistantModel, DemoAssistantModel>();
+else if (assistantMode.Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
+  builder.Services.AddHttpClient<IAssistantModel, OpenAiAssistantModel>(client => client.Timeout = TimeSpan.FromSeconds(30));
+else
+  throw new InvalidOperationException("Assistant:Mode must be Demo or OpenAI.");
+builder.Services.AddScoped<MenuAssistant>();
+
 var app = builder.Build();
+
+app.MapPost("/api/assistant/menu", async (AssistantRequest request, MenuAssistant assistant, CancellationToken ct) =>
+{
+  try { return Results.Ok(await assistant.RunAsync(request, ct)); }
+  catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+  catch (Exception ex) when (ex is InvalidDataException or JsonException or HttpRequestException or KeyNotFoundException)
+  { return Results.Problem("Assistant returned an invalid response or provider is unavailable.", statusCode: 502); }
+  catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+  { return Results.Problem("Assistant provider timed out.", statusCode: 504); }
+});
 
 app.UseDefaultFiles();
 app.UseStaticFiles();

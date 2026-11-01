@@ -166,3 +166,7 @@ Domain (entities + business rules cốt lõi)
 ```bash
 dotnet run
 ```
+
+## LLM practice lab
+
+Thực hành structured outputs, tool calling và prompt templates: [hướng dẫn từng bước](docs/llm-practice.md).

@@ -32,12 +32,12 @@ public sealed class ModuleBoundaryTests
   {
     var result = Types.InAssembly(typeof(OrderApplicationService).Assembly)
       .That()
-      .ResideInNamespace("DataStructures.Application.Order", true)
+      .ResideInNamespaceMatching(@"^DataStructures\.Application\.Order(\.|$)")
       .ShouldNot()
       .HaveDependencyOn(typeof(IPaymentGatewayPort).FullName!)
       .GetResult();
 
-    Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames));
+    Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>()));
   }
 
   [Fact]
@@ -45,12 +45,12 @@ public sealed class ModuleBoundaryTests
   {
     var result = Types.InAssembly(typeof(CheckoutOrderWorkflow).Assembly)
       .That()
-      .ResideInNamespace("DataStructures.Application", true)
+      .ResideInNamespaceMatching(@"^DataStructures\.Application(\.|$)")
       .ShouldNot()
       .HaveDependencyOnAny(ForbiddenUtilityNamespaces)
       .GetResult();
 
-    Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames));
+    Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>()));
   }
 
   [Fact]
@@ -58,12 +58,12 @@ public sealed class ModuleBoundaryTests
   {
     var result = Types.InAssembly(typeof(Order).Assembly)
       .That()
-      .ResideInNamespace("DataStructures.Domain", true)
+      .ResideInNamespaceMatching(@"^DataStructures\.Domain(\.|$)")
       .ShouldNot()
       .HaveDependencyOnAny(ForbiddenUtilityNamespaces)
       .GetResult();
 
-    Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames));
+    Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>()));
   }
 
   [Fact]
@@ -71,14 +71,14 @@ public sealed class ModuleBoundaryTests
   {
     var result = Types.InAssembly(typeof(Order).Assembly)
       .That()
-      .ResideInNamespace("DataStructures.Domain.Payments", true)
+      .ResideInNamespaceMatching(@"^DataStructures\.Domain\.Payments(\.|$)")
       .Or()
-      .ResideInNamespace("DataStructures.Domain.Loyalty", true)
+      .ResideInNamespaceMatching(@"^DataStructures\.Domain\.Loyalty(\.|$)")
       .ShouldNot()
       .HaveDependencyOnAny(ForbiddenUtilityNamespaces)
       .GetResult();
 
-    Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames));
+    Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>()));
   }
 
   [Fact]
@@ -87,9 +87,9 @@ public sealed class ModuleBoundaryTests
     var forbiddenMatches = typeof(Order).Assembly
       .GetTypes()
       .Where(type => type.Namespace is not null)
-      .Where(type => type.Namespace.StartsWith("DataStructures.Helpers")
-        || type.Namespace.StartsWith("DataStructures.Extensions")
-        || type.Namespace.StartsWith("DataStructures.BackgroundServices"))
+      .Where(type => type.Namespace!.StartsWith("DataStructures.Helpers")
+        || type.Namespace!.StartsWith("DataStructures.Extensions")
+        || type.Namespace!.StartsWith("DataStructures.BackgroundServices"))
       .SelectMany(type => type.GetMethods(System.Reflection.BindingFlags.Instance
                                            | System.Reflection.BindingFlags.Static
                                            | System.Reflection.BindingFlags.Public
@@ -107,7 +107,7 @@ public sealed class ModuleBoundaryTests
   {
     var result = Types.InAssembly(typeof(CheckoutOrderWorkflow).Assembly)
       .That()
-      .Are(typeof(CheckoutOrderWorkflow))
+      .HaveName(nameof(CheckoutOrderWorkflow))
       .ShouldNot()
       .HaveDependencyOnAny(
         typeof(IInventoryPort).FullName!,
@@ -116,7 +116,7 @@ public sealed class ModuleBoundaryTests
         typeof(IOrderPort).FullName!)
       .GetResult();
 
-    Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames));
+    Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>()));
   }
 
   [Fact]
@@ -138,7 +138,7 @@ public sealed class ModuleBoundaryTests
   {
     var result = Types.InAssembly(typeof(CheckoutOrderWorkflow).Assembly)
       .That()
-      .ResideInNamespace("DataStructures.Application.Workflows", true)
+      .ResideInNamespaceMatching(@"^DataStructures\.Application\.Workflows(\.|$)")
       .ShouldNot()
       .HaveDependencyOnAny(
         "DataStructures.Infrastructure",
@@ -146,6 +146,6 @@ public sealed class ModuleBoundaryTests
         "DataStructures.Adapters")
       .GetResult();
 
-    Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames));
+    Assert.True(result.IsSuccessful, string.Join(", ", result.FailingTypeNames ?? Array.Empty<string>()));
   }
 }

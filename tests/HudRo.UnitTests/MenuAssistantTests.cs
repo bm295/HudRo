@@ -49,6 +49,33 @@ public sealed class MenuAssistantTests
     await Assert.ThrowsAsync<InvalidDataException>(() => assistant.RunAsync(new("test"), default));
   }
 
+  [Fact]
+  public async Task RepeatedTools_StopAtFourModelTurns()
+  {
+    var assistant = new MenuAssistant(new Stub(new(null, "get_menu", "{}", "call")), new InMemoryFnbReadAdapter(CreateStore()));
+    var error = await Assert.ThrowsAsync<InvalidDataException>(() => assistant.RunAsync(new("test"), default));
+    Assert.Contains("limit", error.Message);
+  }
+
+  [Fact]
+  public async Task RejectsInventedMenuCode()
+  {
+    var assistant = new MenuAssistant(new SequenceModel(), new InMemoryFnbReadAdapter(CreateStore()));
+    await Assert.ThrowsAsync<InvalidDataException>(() => assistant.RunAsync(new("test"), default));
+  }
+
+  [Fact]
+  public void RejectsDuplicateMenuCodes()
+    => Assert.Throws<InvalidDataException>(() => MenuAssistant.Parse("""{"summary":"ok","menuCodes":["A","A"]}"""));
+
+  private sealed class SequenceModel : IAssistantModel
+  {
+    public string Mode => "test";
+    public Task<ModelTurn> CompleteAsync(IReadOnlyList<object> messages, CancellationToken ct)
+      => Task.FromResult(messages.Count == 2 ? new ModelTurn(null, "get_menu", "{}", "call") :
+        new ModelTurn("""{"summary":"ok","menuCodes":["INVENTED"]}"""));
+  }
+
   private static InMemoryFnbStore CreateStore()
   {
     using var provider = new ServiceCollection().AddHudRoInMemoryStore().BuildServiceProvider();

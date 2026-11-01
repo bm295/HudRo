@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using DataStructures.Application.Ports;
 
 namespace DataStructures.Application.Assistant;
@@ -39,6 +38,7 @@ public sealed class MenuAssistant(IAssistantModel model, IFnbReadPort readPort)
     var trace = new List<string>();
     for (var turn = 0; turn < 4; turn++)
     {
+      ct.ThrowIfCancellationRequested();
       var reply = await model.CompleteAsync(messages, ct);
       if (reply.ToolName is not null)
       {
@@ -72,7 +72,8 @@ public sealed class MenuAssistant(IAssistantModel model, IFnbReadPort readPort)
         !root.TryGetProperty("summary", out var summary) || summary.ValueKind != JsonValueKind.String ||
         string.IsNullOrWhiteSpace(summary.GetString()) ||
         !root.TryGetProperty("menuCodes", out var codes) || codes.ValueKind != JsonValueKind.Array ||
-        codes.GetArrayLength() > 10 || codes.EnumerateArray().Any(x => x.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(x.GetString())))
+        codes.GetArrayLength() > 10 ||
+        codes.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString()).Distinct().Count() != codes.GetArrayLength() || codes.EnumerateArray().Any(x => x.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(x.GetString())))
       throw new InvalidDataException("Invalid structured output.");
     return new(summary.GetString()!, codes.EnumerateArray().Select(x => x.GetString()!).ToArray());
   }

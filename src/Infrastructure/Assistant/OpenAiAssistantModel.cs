@@ -34,18 +34,32 @@ public sealed class OpenAiAssistantModel(HttpClient client, IConfiguration confi
     using var response = await client.SendAsync(request, ct);
     if (!response.IsSuccessStatusCode) throw new HttpRequestException("LLM provider request failed.", null, response.StatusCode);
     using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
-    var choice = body.RootElement.GetProperty("choices")[0];
-    var message = choice.GetProperty("message");
-    if (message.TryGetProperty("refusal", out var refusal) && refusal.ValueKind != JsonValueKind.Null)
-      throw new InvalidDataException("Model refused the request.");
-    var finish = choice.GetProperty("finish_reason").GetString();
-    if (finish == "tool_calls" && message.TryGetProperty("tool_calls", out var calls) && calls.GetArrayLength() == 1)
+    try
     {
-      var call = calls[0];
-      var function = call.GetProperty("function");
-      return new(null, function.GetProperty("name").GetString(), function.GetProperty("arguments").GetString(), call.GetProperty("id").GetString());
+      var choices = body.RootElement.GetProperty("choices");
+      if (choices.ValueKind != JsonValueKind.Array || choices.GetArrayLength() != 1)
+        throw new InvalidDataException("Expected exactly one model choice.");
+      var choice = choices[0];
+      var message = choice.GetProperty("message");
+      if (message.TryGetProperty("refusal", out var refusal) && refusal.ValueKind != JsonValueKind.Null)
+        throw new InvalidDataException("Model refused the request.");
+      var finish = choice.GetProperty("finish_reason").GetString();
+      if (finish == "tool_calls" && message.TryGetProperty("tool_calls", out var calls) && calls.GetArrayLength() == 1)
+      {
+        var call = calls[0];
+        var function = call.GetProperty("function");
+        return new(null, function.GetProperty("name").GetString(), function.GetProperty("arguments").GetString(), call.GetProperty("id").GetString());
+      }
+      if (finish != "stop") throw new InvalidDataException("Incomplete model response.");
+      if (message.TryGetProperty("tool_calls", out var unexpectedCalls) &&
+          unexpectedCalls.ValueKind != JsonValueKind.Null &&
+          (unexpectedCalls.ValueKind != JsonValueKind.Array || unexpectedCalls.GetArrayLength() != 0))
+        throw new InvalidDataException("Unexpected tool calls in final response.");
+      return new(message.GetProperty("content").GetString());
     }
-    if (finish != "stop") throw new InvalidDataException("Incomplete model response.");
-    return new(message.GetProperty("content").GetString());
+    catch (Exception ex) when (ex is KeyNotFoundException or InvalidOperationException or IndexOutOfRangeException)
+    {
+      throw new InvalidDataException("Malformed model response.", ex);
+    }
   }
 }

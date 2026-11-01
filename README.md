@@ -1,4 +1,4 @@
-# DataStructures
+# HudRo — FnB & AI menu assistant
 
 ## Local build and run
 
@@ -52,7 +52,7 @@ http://localhost:5058
 ### Run tests
 
 ```bash
-dotnet test --no-restore
+dotnet test HudRo.Fnb.sln --configuration Release --no-restore
 ```
 
 ### Basic local workflow
@@ -170,3 +170,8 @@ dotnet run
 ## LLM practice lab
 
 Thực hành structured outputs, tool calling và prompt templates: [hướng dẫn từng bước](docs/llm-practice.md).
+
+Assistant API: `POST /api/assistant/menu`; Demo chạy không cần key, OpenAI mode dùng
+biến môi trường. Solution bao gồm unit tests, HTTP API integration tests và
+architecture tests; GitHub Actions chạy tất cả. Xem mục 7 trong hướng dẫn LLM
+để biết hợp đồng API, lỗi và phạm vi kiểm thử.

@@ -175,3 +175,7 @@ Assistant API: `POST /api/assistant/menu`; Demo chạy không cần key, OpenAI 
 biến môi trường. Solution bao gồm unit tests, HTTP API integration tests và
 architecture tests; GitHub Actions chạy tất cả. Xem mục 7 trong hướng dẫn LLM
 để biết hợp đồng API, lỗi và phạm vi kiểm thử.
+
+### Vector database & semantic search
+
+Xem [hướng dẫn Qdrant + embeddings](docs/semantic-search.md) để chạy vector database, index tài liệu và tìm theo ý nghĩa qua `/api/search/query`.

@@ -1,3 +1,6 @@
+using DataStructures.Application.Search;
+using DataStructures.Infrastructure.Search;
+using DataStructures.Presentation;
 using DataStructures.Application.Assistant;
 using DataStructures.Infrastructure.Assistant;
 using System.Text.Json;
@@ -42,7 +45,29 @@ else
   throw new InvalidOperationException("Assistant:Mode must be Demo or OpenAI.");
 builder.Services.AddScoped<MenuAssistant>();
 
+var searchEnabled = builder.Configuration.GetValue<bool>("Search:Enabled");
+if (searchEnabled)
+{
+  builder.Services.AddOptions<SearchOptions>().Bind(builder.Configuration.GetSection("Search"))
+    .Validate(o => !string.IsNullOrWhiteSpace(o.ApiKey), "Configure Search:ApiKey.")
+    .Validate(o => o.Dimensions is > 0 and <= 3072 && !string.IsNullOrWhiteSpace(o.Model), "Invalid embedding configuration.")
+    .Validate(o => !string.IsNullOrWhiteSpace(o.Collection) &&
+      System.Text.RegularExpressions.Regex.IsMatch(o.Collection, "^[a-zA-Z0-9_-]+$"), "Invalid collection name.")
+    .Validate(o => Uri.TryCreate(o.QdrantUrl, UriKind.Absolute, out var uri) &&
+      (uri.Scheme == "http" || uri.Scheme == "https"), "Invalid Qdrant URL.")
+    .ValidateOnStart();
+  builder.Services.AddHttpClient<ITextEmbedding, OpenAiTextEmbedding>(client => client.Timeout = TimeSpan.FromSeconds(30));
+  builder.Services.AddHttpClient<IVectorRepository, QdrantVectorRepository>((services, client) => {
+    var options = services.GetRequiredService<Microsoft.Extensions.Options.IOptions<SearchOptions>>().Value;
+    client.BaseAddress = new Uri(options.QdrantUrl.TrimEnd('/') + "/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+    if (!string.IsNullOrWhiteSpace(options.QdrantApiKey)) client.DefaultRequestHeaders.Add("api-key", options.QdrantApiKey);
+  });
+  builder.Services.AddScoped<SemanticSearch>();
+}
+
 var app = builder.Build();
+if (searchEnabled) app.MapSemanticSearch();
 
 app.MapPost("/api/assistant/menu", async (AssistantRequest request, MenuAssistant assistant, CancellationToken ct) =>
 {
